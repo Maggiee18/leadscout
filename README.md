@@ -6,6 +6,8 @@ LeadScout is an AI lead qualifier for real estate agents. Paste a property inqui
 
 > The AI reads. The rules score. The agent decides.
 
+**Live demo:** [leadscout-3588.onrender.com](https://leadscout-3588.onrender.com) · the app is at [/app](https://leadscout-3588.onrender.com/app). It runs on Render's free plan, so the first visit after a quiet spell takes about a minute to wake up.
+
 ![CI](https://github.com/Maggiee18/leadscout/actions/workflows/ci.yml/badge.svg)
 
 ## The problem
