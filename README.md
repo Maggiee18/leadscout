@@ -18,9 +18,12 @@ Agents get a steady stream of inquiries from buyers, sellers, renters and invest
 
 - **3D landing page** at `/`: a poster style homepage where a studio-lit "sorting machine" (built with Three.js) shows the product: inquiries drop into a funnel, pass the glowing scoring core and roll into Hot, Warm and Cold bowls. Drag to turn it, pause it, or highlight a tier. Falls back to an illustration without WebGL and respects reduced motion. The app itself lives at `/app`.
 - **Single lead analysis**: score ring, Hot/Warm/Cold badge, extracted facts ("Not provided" when missing, never guessed), a point by point breakdown, a recommended next action and a copyable SMS draft.
-- **Bulk CSV analysis**: drag and drop up to 50 leads, then search, filter, sort, open any lead and download the scored CSV.
-- **Lead history**: every analysis is saved to your account, with search, tier filter, sorting, pagination, CSV export, and delete one or all.
-- **Dashboard**: totals, Hot/Warm/Cold split, average score and recent activity, calculated on the server from your saved leads.
+- **Customer details**: name, phone, email, property type and bedrooms are read from the message (phone numbers and emails by fixed patterns, so a phone number can never be mistaken for a budget). A confidence percentage shows how much of the score rests on facts the customer actually stated, plus their interest level and tone.
+- **Bulk upload**: CSV or Excel (.xlsx), commas, semicolons or tabs, flexible column names (`message`, `inquiry`, `enquiry`, `comments`; optional `name`, `phone`, `email`), up to 50 leads. Repeat inquiries (same phone, email or message) are flagged as possible duplicates.
+- **Lead pipeline**: statuses New, Contacted, Follow-up, Converted and Lost; search by name, phone or email; filter by tier, status, property type, location and budget range; edit any detail (changing a scoring fact re-scores the lead with the same rules); notes; delete one or all; server-built CSV export.
+- **Listings and matching**: add properties by hand or import a CSV or Excel file. Every lead gets up to three suggested properties that fit its deal type, location, budget (up to 10% over), type and bedrooms, each with the reasons it matched. Replies mention matching listings only when they exist.
+- **Dashboard**: total leads, Hot/Warm/Cold counts, conversion rate, average score, a monthly chart of leads and conversions, the pipeline by status and recent leads, all calculated on the server.
+- **Activity log and admin**: sign-ins, uploads, edits, status changes, exports and deletions are recorded (never lead messages or contact details). Admins, set with `ADMIN_EMAILS`, see all accounts and everyone's activity, but not other users' leads.
 - **Accounts**: registration, login, "keep me logged in", forgot/reset password by email, change name, change password (signs out other devices), delete account with all data.
 - **Privacy policy and terms** pages, linked from signup.
 - **Honest AI status**: every result says whether the AI or offline rules read it, and why it fell back.
@@ -170,6 +173,7 @@ See `.env.example` for every setting with comments. The important ones:
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM` | empty | Email for password reset (Gmail works with an App Password) |
 | `BATCH_AI_SECONDS` | `60` | AI time budget per CSV batch |
 | `RATE_LIMIT_*_PER_MIN` | 30 / 6 / 10 | Per IP limits for scoring, batches and auth |
+| `ADMIN_EMAILS` | empty | Comma-separated emails that get the admin role |
 
 ## Tests and quality checks
 
@@ -200,7 +204,10 @@ GitHub Actions (`.github/workflows/ci.yml`) runs lint, tests on Python 3.10 and 
 - Passwords are hashed with scrypt and a unique salt. Login errors and timing don't reveal which emails have accounts.
 - Sessions are random 256 bit tokens in `HttpOnly`, `SameSite=Lax` cookies (`Secure` in production). Only a SHA-256 of each token is stored. Logging out, changing or resetting a password revokes sessions on the server.
 - Reset links expire after 30 minutes, work once, void older links, are capped at 3 per hour, and live in the URL fragment so they never reach server logs.
-- Every lead query is scoped to the signed-in user, so one user can never read or delete another's data.
+- Every lead and listing query is scoped to the signed-in user, so one user can never read, edit or delete another's data (tested).
+- Five wrong passwords in a row pause the account for 15 minutes; a password reset unlocks it.
+- An activity log records sign-ins, failed sign-ins, uploads, edits, exports and deletions with time and IP address. It never stores lead messages or customer contact details.
+- Uploads are checked for type, size, extension and contents (an Excel file must really be Excel). Lists show phone numbers masked.
 - Strict Content Security Policy (Three.js is served from the app itself, not a CDN), gzip compression, HSTS in production, cross-site POSTs rejected, per IP rate limits, CSV upload validation, CSV export protected against formula injection.
 - Lead text is never written to the logs. The AI key stays on the server.
 
@@ -216,4 +223,4 @@ GitHub Actions (`.github/workflows/ci.yml`) runs lint, tests on Python 3.10 and 
 - Background batch jobs with a progress bar, so large CSVs wait out the AI rate limit instead of falling back
 - Email verification and changing the account email
 - CRM integrations (HubSpot, Zoho) and sending SMS through Twilio after the agent approves
-- Configurable scoring weights per agency, team workspaces with roles
+- Configurable scoring weights per agency, and shared team workspaces

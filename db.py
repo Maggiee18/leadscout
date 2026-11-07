@@ -18,6 +18,10 @@ def _big(pg):
     return "BIGINT" if pg else "INTEGER"
 
 
+def _real(pg):
+    return "DOUBLE PRECISION" if pg else "REAL"
+
+
 # Each migration: (version, description, function(pg) -> list of SQL statements)
 MIGRATIONS = [
     (1, "users and sessions", lambda pg: [
@@ -64,6 +68,49 @@ MIGRATIONS = [
             used_at {_big(pg)}
         )""",
         "CREATE INDEX IF NOT EXISTS idx_resets_user ON password_resets(user_id)",
+    ]),
+    (4, "lead pipeline, listings, activity log, roles and lockout", lambda pg: [
+        "ALTER TABLE leads ADD COLUMN status TEXT NOT NULL DEFAULT 'New'",
+        "ALTER TABLE leads ADD COLUMN phone TEXT",
+        "ALTER TABLE leads ADD COLUMN email TEXT",
+        f"ALTER TABLE leads ADD COLUMN budget {_real(pg)}",
+        "ALTER TABLE leads ADD COLUMN currency TEXT",
+        "ALTER TABLE leads ADD COLUMN property_type TEXT",
+        "ALTER TABLE leads ADD COLUMN dedupe_key TEXT",
+        "ALTER TABLE leads ADD COLUMN duplicate_of TEXT",
+        "ALTER TABLE leads ADD COLUMN notes TEXT",
+        f"ALTER TABLE leads ADD COLUMN updated_at {_big(pg)}",
+        f"ALTER TABLE leads ADD COLUMN status_changed_at {_big(pg)}",
+        "CREATE INDEX IF NOT EXISTS idx_leads_user_status ON leads(user_id, status)",
+        "CREATE INDEX IF NOT EXISTS idx_leads_user_dedupe ON leads(user_id, dedupe_key)",
+        f"""CREATE TABLE IF NOT EXISTS listings (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            title TEXT NOT NULL,
+            location TEXT NOT NULL,
+            deal TEXT NOT NULL CHECK (deal IN ('sale', 'rent')),
+            price {_real(pg)} NOT NULL CHECK (price > 0),
+            currency TEXT NOT NULL CHECK (currency IN ('INR', 'USD')),
+            property_type TEXT,
+            bedrooms INTEGER,
+            status TEXT NOT NULL DEFAULT 'available',
+            url TEXT,
+            created_at {_big(pg)} NOT NULL
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_listings_user ON listings(user_id, created_at DESC)",
+        f"""CREATE TABLE IF NOT EXISTS activity_log (
+            id TEXT PRIMARY KEY,
+            user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+            action TEXT NOT NULL,
+            detail TEXT,
+            ip TEXT,
+            created_at {_big(pg)} NOT NULL
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_activity_user ON activity_log(user_id, created_at DESC)",
+        "CREATE INDEX IF NOT EXISTS idx_activity_created ON activity_log(created_at DESC)",
+        "ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'agent'",
+        "ALTER TABLE users ADD COLUMN failed_logins INTEGER NOT NULL DEFAULT 0",
+        f"ALTER TABLE users ADD COLUMN locked_until {_big(pg)}",
     ]),
 ]
 

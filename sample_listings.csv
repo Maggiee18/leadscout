@@ -1,0 +1,10 @@
+title,location,deal,price,currency,property_type,bedrooms,status
+Example: 3 bed family home near the Domain,Austin,sale,525000,USD,House,3,available
+Example: 4 bed house with garden,Austin,sale,640000,USD,House,4,available
+Example: Investment duplex close to downtown,Phoenix,sale,680000,USD,House,4,available
+Example: 2BHK flat in Gachibowli,Hyderabad,sale,6200000,INR,Apartment,2,available
+Example: 3BHK apartment in Kondapur,Hyderabad,sale,9500000,INR,Apartment,3,available
+Example: 2 bed apartment in LoDo,Denver,rent,2300,USD,Apartment,2,available
+Example: 1 bed studio in Capitol Hill,Denver,rent,1650,USD,Apartment,1,available
+Example: 3BHK apartment in Benz Circle,Vijayawada,sale,7800000,INR,Apartment,3,available
+Example: Villa with pool in Jubilee Hills,Hyderabad,sale,42000000,INR,Villa,4,under offer

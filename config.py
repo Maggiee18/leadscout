@@ -55,6 +55,9 @@ RATE_SCORE = _int("RATE_LIMIT_SCORE_PER_MIN", 30)
 RATE_BATCH = _int("RATE_LIMIT_BATCH_PER_MIN", 6)
 RATE_AUTH = _int("RATE_LIMIT_AUTH_PER_MIN", 10)
 
+# Comma-separated emails that get the admin role (can see all users and the full activity log)
+ADMIN_EMAILS = [e.strip().lower() for e in os.getenv("ADMIN_EMAILS", "").split(",") if e.strip()]
+
 # Email (password reset)
 SMTP_HOST = os.getenv("SMTP_HOST", "")
 SMTP_PORT = _int("SMTP_PORT", 587)

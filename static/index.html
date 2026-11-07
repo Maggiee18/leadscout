@@ -53,6 +53,14 @@
     <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
     <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M9.9 4.2A10 10 0 0 1 12 4c6.5 0 10 8 10 8a17 17 0 0 1-2.2 3.2M6.6 6.6A17 17 0 0 0 2 12s3.5 8 10 8a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2M2 2l20 20"/></symbol>
     <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></symbol>
+    <symbol id="i-building" viewBox="0 0 24 24"><path d="M4 21V5l8-3v19M12 9h8v12M8 7v.01M8 11v.01M8 15v.01M16 13v.01M16 17v.01M3 21h18"/></symbol>
+    <symbol id="i-activity" viewBox="0 0 24 24"><path d="M3 12h4l3 8 4-16 3 8h4"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></symbol>
+    <symbol id="i-filter" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></symbol>
+    <symbol id="i-trend" viewBox="0 0 24 24"><path d="m3 17 6-6 4 4 8-8"/><path d="M14 7h7v7"/></symbol>
+    <symbol id="i-crown" viewBox="0 0 24 24"><path d="m3 7 4 4 5-7 5 7 4-4-2 12H5z"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
     <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
     <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
     <symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
@@ -232,7 +240,10 @@
     <a href="#/dashboard" data-nav="dashboard"><svg class="i"><use href="#i-dashboard"/></svg>Dashboard</a>
     <a href="#/analyze" data-nav="analyze"><svg class="i"><use href="#i-scan"/></svg>Single lead analysis</a>
     <a href="#/bulk" data-nav="bulk"><svg class="i"><use href="#i-upload"/></svg>Bulk lead analysis</a>
-    <a href="#/history" data-nav="history"><svg class="i"><use href="#i-clock"/></svg>Lead history</a>
+    <a href="#/history" data-nav="history"><svg class="i"><use href="#i-users"/></svg>Leads</a>
+    <a href="#/listings" data-nav="listings"><svg class="i"><use href="#i-building"/></svg>Listings</a>
+    <a href="#/activity" data-nav="activity"><svg class="i"><use href="#i-activity"/></svg>Activity log</a>
+    <a href="#/admin" data-nav="admin" data-admin-only hidden><svg class="i"><use href="#i-crown"/></svg>Admin</a>
     <p class="nav-label">Learn</p>
     <a href="#/samples" data-nav="samples"><svg class="i"><use href="#i-users"/></svg>Sample leads</a>
     <a href="#/how" data-nav="how"><svg class="i"><use href="#i-book"/></svg>How it works</a>
@@ -258,31 +269,36 @@
 
   <!-- ============ DASHBOARD ============ -->
   <section class="view" data-view="dashboard" aria-labelledby="dash-title">
-    <div class="hero card">
-      <div class="hero-copy">
-        <p class="eyebrow">Find your hottest leads. Close your next deal.</p>
-        <h1 id="dash-title">Welcome to LeadScout</h1>
-        <p class="lead-text">Turn incoming inquiries into your next opportunity. Paste a message and get a score, the reasons behind it and a reply ready to send.</p>
-        <div class="hero-actions">
-          <a class="btn btn-primary btn-lg" href="#/analyze"><svg class="i"><use href="#i-sparkles"/></svg>Analyze new lead</a>
-          <a class="btn btn-ghost btn-lg" href="#/bulk"><svg class="i"><use href="#i-upload"/></svg>Upload CSV</a>
-        </div>
+    <div class="page-head dash-head">
+      <div>
+        <p class="eyebrow" id="dashDate"></p>
+        <h1 id="dash-title">Dashboard</h1>
+        <p class="muted" id="dashGreeting">Your pipeline at a glance.</p>
       </div>
-      <div class="hero-art" aria-hidden="true">
-        <div class="flow-step"><span class="flow-icon"><svg class="i"><use href="#i-message"/></svg></span><span><b>Paste</b><small>Any inquiry</small></span></div>
-        <div class="flow-line"></div>
-        <div class="flow-step"><span class="flow-icon"><svg class="i"><use href="#i-target"/></svg></span><span><b>Score</b><small>Hot, Warm or Cold</small></span></div>
-        <div class="flow-line"></div>
-        <div class="flow-step"><span class="flow-icon"><svg class="i"><use href="#i-copy"/></svg></span><span><b>Reply</b><small>Draft ready to copy</small></span></div>
+      <div class="head-actions">
+        <a class="btn btn-ghost" href="#/bulk"><svg class="i"><use href="#i-upload"/></svg>Upload leads</a>
+        <a class="btn btn-primary" href="#/analyze"><svg class="i"><use href="#i-sparkles"/></svg>Analyze new lead</a>
       </div>
     </div>
 
     <div class="kpis" id="kpis" aria-live="polite">
-      <div class="kpi"><span class="kpi-label">Leads analyzed</span><span class="kpi-value" data-kpi="total">0</span><span class="kpi-sub">this session</span></div>
+      <div class="kpi"><span class="kpi-label">Total leads</span><span class="kpi-value" data-kpi="total">0</span><span class="kpi-sub">this session</span></div>
       <div class="kpi kpi-hot"><span class="kpi-label"><svg class="i"><use href="#i-flame"/></svg>Hot</span><span class="kpi-value" data-kpi="hot">0</span><span class="kpi-sub" data-kpi-sub="hot">score 70+</span></div>
       <div class="kpi kpi-warm"><span class="kpi-label"><svg class="i"><use href="#i-sun"/></svg>Warm</span><span class="kpi-value" data-kpi="warm">0</span><span class="kpi-sub" data-kpi-sub="warm">score 40–69</span></div>
       <div class="kpi kpi-cold"><span class="kpi-label"><svg class="i"><use href="#i-snow"/></svg>Cold</span><span class="kpi-value" data-kpi="cold">0</span><span class="kpi-sub" data-kpi-sub="cold">below 40</span></div>
+      <div class="kpi kpi-conv"><span class="kpi-label"><svg class="i"><use href="#i-trend"/></svg>Conversion rate</span><span class="kpi-value" data-kpi="conv">–</span><span class="kpi-sub" data-kpi-sub="conv">leads marked Converted</span></div>
       <div class="kpi kpi-avg"><span class="kpi-label">Average score</span><span class="kpi-value" data-kpi="avg">–</span><span class="kpi-sub">out of 100</span></div>
+    </div>
+
+    <div class="dash-grid dash-grid-wide">
+      <div class="card">
+        <div class="card-head"><h2>Leads and conversions by month</h2><span class="hint">Last 6 months</span></div>
+        <div id="monthly"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>Pipeline</h2><a class="link" href="#/history">Manage leads</a></div>
+        <div id="pipeline"></div>
+      </div>
     </div>
 
     <div class="dash-grid">
@@ -291,7 +307,7 @@
         <div id="distribution"></div>
       </div>
       <div class="card">
-        <div class="card-head"><h2>Recent activity</h2><a class="link" href="#/history" id="viewAllLink" hidden>View all</a></div>
+        <div class="card-head"><h2>Recent leads</h2><a class="link" href="#/history" id="viewAllLink" hidden>View all</a></div>
         <div id="recent"></div>
       </div>
     </div>
@@ -307,8 +323,8 @@
 
     <div class="privacy-row">
       <svg class="i"><use href="#i-shield"/></svg>
-      <p>Every lead you analyze is saved privately to your account. Only you can see it.</p>
-      <a class="btn btn-text btn-sm" href="#/history"><svg class="i"><use href="#i-clock"/></svg>Manage history</a>
+      <p>Every lead you analyze is saved privately to your account. Only you can see it, and every change is recorded in your activity log.</p>
+      <a class="btn btn-text btn-sm" href="#/activity"><svg class="i"><use href="#i-activity"/></svg>Activity log</a>
     </div>
   </section>
 
@@ -329,6 +345,16 @@
         <div class="field">
           <label for="leadName">Lead name <span class="optional">optional</span></label>
           <input id="leadName" name="name" type="text" autocomplete="off" maxlength="80" placeholder="e.g. Priya Sharma">
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="leadPhone">Phone <span class="optional">optional</span></label>
+            <input id="leadPhone" name="phone" type="tel" autocomplete="off" maxlength="20" placeholder="e.g. 98765 43210">
+          </div>
+          <div class="field">
+            <label for="leadEmail">Email <span class="optional">optional</span></label>
+            <input id="leadEmail" name="email" type="email" autocomplete="off" maxlength="120" placeholder="name@example.com">
+          </div>
         </div>
         <div class="field">
           <div class="label-row"><label for="leadMsg">Inquiry message</label><span class="counter" id="counter" aria-live="polite">0 / 2000</span></div>
@@ -370,16 +396,16 @@
     <div class="page-head">
       <div>
         <h1 id="bulk-title">Bulk lead analysis</h1>
-        <p class="muted">Upload a CSV and LeadScout ranks every lead, highest score first.</p>
+        <p class="muted">Upload a CSV or Excel file and LeadScout ranks every lead, highest score first, and flags repeat inquiries.</p>
       </div>
     </div>
 
     <div class="card upload-card">
       <div class="dropzone" id="dropzone">
-        <input type="file" id="fileInput" accept=".csv,text/csv" class="sr-only" aria-describedby="fileHelp">
+        <input type="file" id="fileInput" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="sr-only" aria-describedby="fileHelp">
         <div class="drop-icon"><svg class="i"><use href="#i-upload"/></svg></div>
-        <p class="drop-title"><span class="hide-touch">Drag and drop your CSV here, or </span><label for="fileInput" class="link-btn">browse files</label></p>
-        <p class="hint" id="fileHelp">CSV with a <code>message</code> column and an optional <code>name</code> column · up to 50 leads · max 512 KB</p>
+        <p class="drop-title"><span class="hide-touch">Drag and drop a CSV or Excel file here, or </span><label for="fileInput" class="link-btn">browse files</label></p>
+        <p class="hint" id="fileHelp">CSV or Excel (.xlsx) with a <code>message</code> column (or inquiry, enquiry, comments). Optional: <code>name</code>, <code>phone</code>, <code>email</code>. Commas, semicolons or tabs all work · up to 50 leads · max 512 KB</p>
       </div>
       <div class="file-chip" id="fileChip" hidden>
         <svg class="i"><use href="#i-file"/></svg>
@@ -465,8 +491,8 @@
   <section class="view" data-view="history" aria-labelledby="history-title" hidden>
     <div class="page-head">
       <div>
-        <h1 id="history-title">Lead history</h1>
-        <p class="muted">Every lead you've analyzed, saved to your account.</p>
+        <h1 id="history-title">Leads</h1>
+        <p class="muted">Search, filter and work every lead through your pipeline.</p>
       </div>
       <div class="head-actions">
         <button class="btn btn-ghost" id="historyExport"><svg class="i"><use href="#i-download"/></svg><span>Export CSV</span></button>
@@ -478,7 +504,7 @@
         <div class="search">
           <svg class="i"><use href="#i-search"/></svg>
           <label for="historySearch" class="sr-only">Search history</label>
-          <input id="historySearch" type="search" placeholder="Search name, location, message…">
+          <input id="historySearch" type="search" placeholder="Search name, phone, email, location…">
         </div>
         <div class="segmented" role="group" aria-label="Filter by classification" id="historyTier">
           <button data-tier="all" aria-pressed="true">All</button>
@@ -493,8 +519,23 @@
             <option value="oldest">Oldest first</option>
             <option value="score-desc">Score: high to low</option>
             <option value="score-asc">Score: low to high</option>
+            <option value="updated">Recently updated</option>
           </select>
         </div>
+      </div>
+      <div class="filter-row" role="group" aria-label="More filters">
+        <label class="mini-field"><span>Status</span>
+          <select id="fStatus"><option value="all">All statuses</option><option>New</option><option>Contacted</option><option>Follow-up</option><option>Converted</option><option>Lost</option></select></label>
+        <label class="mini-field"><span>Property</span>
+          <select id="fProperty"><option value="">Any type</option><option>Apartment</option><option>House</option><option>Villa</option><option>Plot</option><option>Commercial</option></select></label>
+        <label class="mini-field"><span>Location</span>
+          <input id="fLocation" type="search" list="locationList" placeholder="Any location" maxlength="80"><datalist id="locationList"></datalist></label>
+        <label class="mini-field"><span>Budget from</span><input id="fMin" type="number" min="0" inputmode="numeric" placeholder="Min"></label>
+        <label class="mini-field"><span>to</span><input id="fMax" type="number" min="0" inputmode="numeric" placeholder="Max"></label>
+        <label class="mini-field"><span>Currency</span>
+          <select id="fCurrency"><option value="">Any</option><option value="INR">₹ INR</option><option value="USD">$ USD</option></select></label>
+        <label class="check-pill"><input type="checkbox" id="fDup"><span>Possible duplicates</span></label>
+        <button class="btn btn-text btn-sm" id="fReset" type="button"><svg class="i"><use href="#i-refresh"/></svg>Reset filters</button>
       </div>
       <div id="historyBody" aria-live="polite" aria-busy="false"></div>
       <div class="pager" id="historyPager" hidden>
@@ -505,6 +546,47 @@
         </div>
       </div>
     </div>
+  </section>
+
+  <!-- ============ LISTINGS ============ -->
+  <section class="view" data-view="listings" aria-labelledby="listings-title" hidden>
+    <div class="page-head">
+      <div>
+        <h1 id="listings-title">Listings</h1>
+        <p class="muted">Your properties. LeadScout suggests the ones that fit each lead's budget, location and needs.</p>
+      </div>
+      <div class="head-actions">
+        <input type="file" id="listingFile" accept=".csv,.xlsx" class="sr-only">
+        <label for="listingFile" class="btn btn-ghost" tabindex="0" id="listingImportBtn"><svg class="i"><use href="#i-upload"/></svg><span>Import CSV or Excel</span></label>
+        <button class="btn btn-primary" id="addListing"><svg class="i"><use href="#i-plus"/></svg><span>Add listing</span></button>
+      </div>
+    </div>
+    <div class="card table-card" id="listingsBody" aria-live="polite"></div>
+    <p class="hint listing-hint">Import columns: <code>title</code>, <code>location</code>, <code>price</code>, and optionally <code>deal</code> (sale or rent), <code>currency</code> (INR or USD), <code>property_type</code>, <code>bedrooms</code>, <code>status</code>, <code>url</code>.</p>
+  </section>
+
+  <!-- ============ ACTIVITY ============ -->
+  <section class="view" data-view="activity" aria-labelledby="activity-title" hidden>
+    <div class="page-head">
+      <div>
+        <h1 id="activity-title">Activity log</h1>
+        <p class="muted">Sign-ins, uploads and every change to your leads and listings. Lead messages and contact details are never written here.</p>
+      </div>
+      <button class="btn btn-ghost" id="activityRefresh"><svg class="i"><use href="#i-refresh"/></svg><span>Refresh</span></button>
+    </div>
+    <div class="card" id="activityBody" aria-live="polite"></div>
+  </section>
+
+  <!-- ============ ADMIN ============ -->
+  <section class="view" data-view="admin" aria-labelledby="admin-title" hidden>
+    <div class="page-head">
+      <div>
+        <h1 id="admin-title">Admin</h1>
+        <p class="muted">All accounts and recent activity. Admins can't open other users' leads.</p>
+      </div>
+    </div>
+    <div class="card"><div class="card-head"><h2>Users</h2></div><div id="adminUsers"></div></div>
+    <div class="card"><div class="card-head"><h2>Recent activity, all users</h2></div><div id="adminActivity"></div></div>
   </section>
 
   <!-- ============ SETTINGS ============ -->
@@ -641,7 +723,8 @@
   <a href="#/dashboard" data-nav="dashboard"><svg class="i"><use href="#i-dashboard"/></svg><span>Dashboard</span></a>
   <a href="#/analyze" data-nav="analyze"><svg class="i"><use href="#i-scan"/></svg><span>Analyze</span></a>
   <a href="#/bulk" data-nav="bulk"><svg class="i"><use href="#i-upload"/></svg><span>Bulk</span></a>
-  <a href="#/history" data-nav="history"><svg class="i"><use href="#i-clock"/></svg><span>History</span></a>
+  <a href="#/history" data-nav="history"><svg class="i"><use href="#i-users"/></svg><span>Leads</span></a>
+  <a href="#/listings" data-nav="listings"><svg class="i"><use href="#i-building"/></svg><span>Listings</span></a>
 </nav>
 
 <dialog class="modal" id="leadModal" aria-labelledby="modalTitle">
@@ -650,6 +733,65 @@
     <button class="icon-btn" id="closeModal" aria-label="Close details"><svg class="i"><use href="#i-x"/></svg></button>
   </div>
   <div class="modal-body" id="modalBody"></div>
+</dialog>
+
+<dialog class="modal form-modal" id="editModal" aria-labelledby="editTitle">
+  <form class="modal-form" id="editForm" novalidate>
+    <div class="modal-head">
+      <h2 id="editTitle">Edit lead</h2>
+      <button type="button" class="icon-btn" data-close aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <p class="hint">Changing the budget, location, timeline, intent or financing re-scores the lead with the same published rules.</p>
+      <div class="form-grid">
+        <label class="field"><span class="label">Name</span><input type="text" name="name" maxlength="80"></label>
+        <label class="field"><span class="label">Status</span><select name="status"><option>New</option><option>Contacted</option><option>Follow-up</option><option>Converted</option><option>Lost</option></select></label>
+        <label class="field"><span class="label">Phone</span><input name="phone" type="tel" maxlength="20"></label>
+        <label class="field"><span class="label">Email</span><input name="email" type="email" maxlength="120"></label>
+        <label class="field"><span class="label">Intent</span><select name="intent"><option value="unknown">Unknown</option><option value="buy">Buy</option><option value="sell">Sell</option><option value="rent">Rent</option><option value="invest">Invest</option></select></label>
+        <label class="field"><span class="label">Location</span><input type="text" name="location" maxlength="80"></label>
+        <label class="field"><span class="label">Budget</span><input name="budget" type="number" min="0" step="any"></label>
+        <label class="field"><span class="label">Currency</span><select name="currency"><option value="INR">₹ INR</option><option value="USD">$ USD</option></select></label>
+        <label class="field"><span class="label">Property type</span><select name="property_type"><option value="">Not given</option><option>Apartment</option><option>House</option><option>Villa</option><option>Plot</option><option>Commercial</option></select></label>
+        <label class="field"><span class="label">Bedrooms</span><input name="bedrooms" type="number" min="0" max="20"></label>
+        <label class="field"><span class="label">Timeline (months)</span><input name="timeline_months" type="number" min="0" max="120" step="0.25" placeholder="0 = right now"></label>
+        <label class="field"><span class="label">Financing</span><select name="financing"><option value="unknown">Unknown</option><option value="cash">Cash</option><option value="preapproved">Pre-approved</option><option value="mortgage">Needs mortgage</option></select></label>
+        <label class="field span-2"><span class="label">Notes</span><textarea name="notes" rows="3" maxlength="1000" placeholder="Anything you want to remember about this lead"></textarea></label>
+      </div>
+      <p class="error" id="editError" role="alert" hidden></p>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" data-close>Cancel</button>
+      <button type="submit" class="btn btn-primary" id="editSave"><svg class="i"><use href="#i-check"/></svg><span>Save changes</span></button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="modal form-modal" id="listingModal" aria-labelledby="listingTitle">
+  <form class="modal-form" id="listingForm" novalidate>
+    <div class="modal-head">
+      <h2 id="listingTitle">Add listing</h2>
+      <button type="button" class="icon-btn" data-close aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <label class="field span-2"><span class="label">Title</span><input type="text" name="title" maxlength="120" required placeholder="e.g. 3BHK apartment near Benz Circle"></label>
+        <label class="field"><span class="label">Location</span><input type="text" name="location" maxlength="80" required placeholder="City or area"></label>
+        <label class="field"><span class="label">For</span><select name="deal"><option value="sale">Sale</option><option value="rent">Rent (monthly)</option></select></label>
+        <label class="field"><span class="label">Price</span><input name="price" type="number" min="1" step="any" required></label>
+        <label class="field"><span class="label">Currency</span><select name="currency"><option value="INR">₹ INR</option><option value="USD">$ USD</option></select></label>
+        <label class="field"><span class="label">Property type</span><select name="property_type"><option value="">Not given</option><option>Apartment</option><option>House</option><option>Villa</option><option>Plot</option><option>Commercial</option></select></label>
+        <label class="field"><span class="label">Bedrooms</span><input name="bedrooms" type="number" min="0" max="20"></label>
+        <label class="field"><span class="label">Status</span><select name="status"><option value="available">Available</option><option value="under offer">Under offer</option><option value="sold">Sold or let</option></select></label>
+        <label class="field"><span class="label">Link <span class="optional">optional</span></span><input name="url" type="url" maxlength="300" placeholder="https://"></label>
+      </div>
+      <p class="error" id="listingError" role="alert" hidden></p>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" data-close>Cancel</button>
+      <button type="submit" class="btn btn-primary"><svg class="i"><use href="#i-check"/></svg><span>Save listing</span></button>
+    </div>
+  </form>
 </dialog>
 
 <dialog class="modal confirm" id="confirmModal" aria-labelledby="confirmTitle" aria-describedby="confirmText">

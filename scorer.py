@@ -13,6 +13,8 @@ import math
 import re
 
 INTENTS = ("buy", "sell", "rent", "invest", "unknown")
+PROPERTY_TYPES = ("Apartment", "House", "Villa", "Plot", "Commercial")
+SENTIMENTS = ("positive", "neutral", "negative")
 FINANCING = ("cash", "preapproved", "mortgage", "unknown")
 CURRENCIES = ("USD", "INR")
 
@@ -26,6 +28,13 @@ EMPTY_FIELDS = {
     "motivation": None,         # short text, why they are moving
     "red_flags": [],            # e.g. "just browsing", "no budget"
     "summary": "",
+    # customer details (shown and searchable, never part of the score)
+    "customer_name": None,      # name the lead gives in the message
+    "phone": None,              # read by fixed patterns, never by the AI
+    "email": None,
+    "property_type": None,      # Apartment / House / Villa / Plot / Commercial
+    "bedrooms": None,           # e.g. 3 for "3BHK" or "3 bed"
+    "sentiment": "neutral",     # positive / neutral / negative (tone of the message)
 }
 
 EXTRACT_PROMPT = """You are a real estate lead analyst. Read the lead's message and
@@ -41,8 +50,13 @@ Return ONLY a JSON object, no markdown, with exactly these keys:
   "financing": "cash" | "preapproved" | "mortgage" | "unknown",
   "motivation": string or null (why they are moving, a few words, only if stated),
   "red_flags": list of short strings for signals the lead may not be serious or able to act, e.g. "just browsing", "unsure if moving", "unrealistic budget", "contradictory details"; [] if none. Never list missing information (no budget, unknown financing, no timeline) as a red flag,
-  "summary": one sentence summary of the lead
-}"""
+  "summary": one sentence summary of the lead,
+  "customer_name": string or null (only if the writer states their own name, e.g. "I'm Ravi"),
+  "property_type": "Apartment" | "House" | "Villa" | "Plot" | "Commercial" | null (flat or condo -> Apartment; bungalow or independent house -> House; land -> Plot; office or shop -> Commercial),
+  "bedrooms": number or null (3BHK or 3 bed -> 3),
+  "sentiment": "positive" | "neutral" | "negative" (the tone: eager or excited -> positive; frustrated or annoyed -> negative)
+}
+Phone numbers and email addresses are never a budget."""
 
 
 # ---------- JSON safety ----------
@@ -118,9 +132,118 @@ def clean_fields(raw):
         flags = [flags] if flags else []
     f["red_flags"] = [s for s in (_text(x, 60) for x in flags) if s][:5]
 
+    f["customer_name"] = _person_name(f["customer_name"])
+    ptype = str(f["property_type"] or "").strip().lower()
+    ptype = {"flat": "apartment", "condo": "apartment", "condominium": "apartment", "bungalow": "house",
+             "independent house": "house", "home": "house", "land": "plot", "office": "commercial",
+             "shop": "commercial"}.get(ptype, ptype)
+    f["property_type"] = next((t for t in PROPERTY_TYPES if t.lower() == ptype), None)
+    beds = _num(f["bedrooms"])
+    f["bedrooms"] = int(beds) if beds is not None and 0 < beds <= 20 and float(beds).is_integer() else None
+    sent = str(f["sentiment"] or "neutral").lower().strip()
+    f["sentiment"] = sent if sent in SENTIMENTS else "neutral"
+    f["phone"] = _text(f["phone"], 20)
+    f["email"] = _text(f["email"], 120)
     f["location"] = _text(f["location"], 80)
     f["motivation"] = _text(f["motivation"], 80)
     f["summary"] = _text(f["summary"], 300) or ""
+    return f
+
+
+# ---------- Contact details and other facts read by fixed patterns ----------
+
+_EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+_PHONE_CANDIDATE = re.compile(r"(?<![\w₹$])\+?\d[\d \t().-]{8,18}\d(?!\s?(?:k|m|l|cr|lakhs?|lacs?|crores?|million|thousand)\b)",
+                              re.I)
+_NAME = re.compile(r"\b(?i:i am|i'm|im|this is|my name is|name's|name is)\s+([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)")
+_NOT_NAMES = {"Looking", "Interested", "Planning", "Moving", "Selling", "Buying", "Hoping", "Ready", "Not",
+              "Just", "Searching", "Here", "Writing", "Reaching", "Relocating", "Currently", "From"}
+
+
+def _person_name(value):
+    s = _text(value, 60)
+    if not s or any(ch.isdigit() for ch in s) or "@" in s:
+        return None
+    return s
+
+
+def find_phone(text):
+    """A phone number: 10 to 13 digits, possibly spaced, with no comma (money uses commas)."""
+    for m in _PHONE_CANDIDATE.finditer(text or ""):
+        raw = m.group(0).strip()
+        digits = re.sub(r"\D", "", raw)
+        if "," in raw or not 10 <= len(digits) <= 13:
+            continue
+        return ("+" if raw.startswith("+") else "") + digits
+    return None
+
+
+def find_email(text):
+    m = _EMAIL.search(text or "")
+    return m.group(0).lower()[:120] if m else None
+
+
+def strip_contacts(text):
+    """Remove emails and phone numbers so they can never be read as a budget."""
+    text = _EMAIL.sub(" ", text or "")
+    def drop(m):
+        digits = re.sub(r"\D", "", m.group(0))
+        return " " if "," not in m.group(0) and 10 <= len(digits) <= 13 else m.group(0)
+    return _PHONE_CANDIDATE.sub(drop, text)
+
+
+def find_name(text):
+    m = _NAME.search(text or "")
+    if not m:
+        return None
+    first = m.group(1).split()[0]
+    return None if first in _NOT_NAMES else _person_name(m.group(1))
+
+
+def find_property(text):
+    t = (text or "").lower()
+    ptype = None
+    for pat, label in [(r"\b(apartment|flat|condo|condominium|penthouse|studio)\b", "Apartment"),
+                       (r"\bvilla\b", "Villa"),
+                       (r"\b(house|home|bungalow|townhouse|duplex)\b", "House"),
+                       (r"\b(plot|land|site)\b", "Plot"),
+                       (r"\b(office|shop|showroom|commercial|warehouse)\b", "Commercial")]:
+        if re.search(pat, t):
+            ptype = label
+            break
+    beds = re.search(r"\b(\d{1,2})\s?(?:bhk|bed(?:room)?s?|br)\b", t)
+    bedrooms = int(beds.group(1)) if beds and 0 < int(beds.group(1)) <= 20 else None
+    if bedrooms and not ptype and re.search(r"\d\s?bhk\b", t):
+        ptype = "Apartment"
+    return ptype, bedrooms
+
+
+_POSITIVE = r"\b(excited|love|eager|keen|ready|definitely|really want|can't wait|happy|thrilled|asap|urgent(ly)?)\b"
+_NEGATIVE = r"\b(frustrat\w*|annoy\w*|disappoint\w*|unhappy|angry|upset|bad experience|tired of|fed up)\b"
+
+
+def sentiment_with_rules(text):
+    t = (text or "").lower()
+    if re.search(_NEGATIVE, t):
+        return "negative"
+    if re.search(_POSITIVE, t):
+        return "positive"
+    return "neutral"
+
+
+def add_pattern_facts(fields, message):
+    """Facts that fixed patterns read better than any model: contact details, and missing details
+    the model skipped. Also drops a budget that is really a phone number."""
+    f = dict(fields)
+    f["phone"] = find_phone(message)
+    f["email"] = find_email(message)
+    if f["budget"] and f["phone"] and re.sub(r"\D", "", f["phone"]).endswith(str(int(f["budget"]))):
+        f["budget"], f["currency"] = None, None
+    if not f.get("customer_name"):
+        f["customer_name"] = find_name(message)
+    ptype, beds = find_property(message)
+    f["property_type"] = f.get("property_type") or ptype
+    f["bedrooms"] = f.get("bedrooms") or beds
     return f
 
 
@@ -137,7 +260,7 @@ def extract_with_llm(message, client, model):
         resp = client.chat.completions.create(
             model=model,
             temperature=0,
-            max_tokens=600,  # Groq reserves max_tokens against the per-minute quota
+            max_tokens=700,  # Groq reserves max_tokens against the per-minute quota
             **_model_kwargs(model),
             messages=[
                 {"role": "system", "content": EXTRACT_PROMPT},
@@ -145,7 +268,8 @@ def extract_with_llm(message, client, model):
             ],
         )
         try:
-            return clean_fields(parse_json(resp.choices[0].message.content))
+            return clean_fields(add_pattern_facts(clean_fields(parse_json(resp.choices[0].message.content)),
+                                                  message))
         except (ValueError, json.JSONDecodeError) as e:
             last_error = e
     raise RuntimeError(f"Model did not return valid JSON: {last_error}")
@@ -267,9 +391,9 @@ def extract_with_rules(message):
         flags.append("unsure")
 
     motivation = next((label for pat, label in MOTIVATIONS if re.search(pat, t)), None)
-    budget, currency = _money(message)
+    budget, currency = _money(strip_contacts(message))
 
-    return clean_fields({
+    return clean_fields(add_pattern_facts({
         "intent": intent,
         "timeline_months": _timeline(message),
         "budget": budget,
@@ -279,7 +403,8 @@ def extract_with_rules(message):
         "motivation": motivation,
         "red_flags": flags,
         "summary": "Extracted with offline rules (no AI).",
-    })
+        "sentiment": sentiment_with_rules(message),
+    }, message))
 
 
 # ---------- Formatting helpers ----------
@@ -359,6 +484,53 @@ def score_lead(f):
     return score, tier, points
 
 
+# ---------- Confidence and interest (shown next to the score, never part of it) ----------
+
+KEY_FACTS = ("intent", "timeline", "budget", "location", "financing")
+
+
+def facts_stated(f):
+    return {
+        "intent": f["intent"] != "unknown",
+        "timeline": f["timeline_months"] is not None,
+        "budget": bool(f["budget"]),
+        "location": bool(f["location"]),
+        "financing": f["financing"] != "unknown",
+    }
+
+
+def confidence(f, engine):
+    """How much of the score rests on facts the customer actually stated, as a percentage.
+    Five key facts; rules mode (no AI) reads less reliably, so it counts for a little less."""
+    stated = sum(facts_stated(f).values())
+    pct = round(stated / len(KEY_FACTS) * 100)
+    if engine != "ai":
+        pct = round(pct * 0.85)
+    return max(5, pct)
+
+
+def interest_level(f, tier):
+    tl = f["timeline_months"]
+    if f["red_flags"] or tier == "Cold":
+        return "Low"
+    if tier == "Hot" or (tl is not None and tl <= 3 and f["sentiment"] == "positive"):
+        return "High"
+    return "Medium"
+
+
+def describe_want(f):
+    """"a 3 bedroom apartment" / "a villa" / "a home" """
+    ptype = (f.get("property_type") or "").lower()
+    beds = f.get("bedrooms")
+    if beds and ptype:
+        return f"a {beds} bedroom {ptype}"
+    if beds:
+        return f"a {beds} bedroom home"
+    if ptype:
+        return f"an {ptype}" if ptype[0] in "aeiou" else f"a {ptype}"
+    return None
+
+
 # ---------- Next step for the agent ----------
 
 def missing_question(f):
@@ -405,37 +577,54 @@ def next_action(f, tier):
 
 # ---------- Follow-up draft ----------
 
-def template_followup(name, f, tier):
-    name = (name or "").strip() or "there"
+def template_followup(name, f, tier, matches=0):
+    """matches: how many of the agent's own listings fit this lead (never claim listings otherwise)."""
+    name = (f.get("customer_name") or name or "").strip() or "there"
     place = f" in {f['location']}" if f["location"] else ""
+    want = describe_want(f)
+    budget = format_money(f["budget"], f["currency"])
+    if matches:
+        found = (f"I have {matches} listing{'s' if matches > 1 else ''}{place} that match"
+                 f"{'' if matches > 1 else 'es'} what you're looking for")
+    else:
+        found = f"I'd love to help you find {want or 'the right place'}{place}"
+        if budget and f["intent"] != "sell":
+            found += f" around {budget}"
     if tier == "Hot":
         if f["intent"] == "sell":
             return (f"Hi {name}, thanks for reaching out! I'd love to help you sell{place}. "
                     f"Are you free for a quick call today or tomorrow to talk about pricing?")
-        return (f"Hi {name}, thanks for reaching out! I have a few options{place} that fit "
-                f"what you described. Are you free for a quick call today or tomorrow?")
+        return f"Hi {name}, thanks for reaching out! {found}. Are you free for a quick call today or tomorrow?"
     if tier == "Warm":
         _, question = missing_question(f)
         question = question or "Would a quick call this week work to go over options?"
-        lead_in = "To help you get the best result" if f["intent"] == "sell" else "To find the right fit"
-        return f"Hi {name}, great to hear from you! {lead_in}{place}: {question}"
+        if f["intent"] == "sell":
+            return f"Hi {name}, great to hear from you! To help you get the best result{place}: {question}"
+        return f"Hi {name}, great to hear from you! {found}. {question}"
     if f["intent"] == "sell":
         return (f"Hi {name}, thanks for reaching out! Happy to share what homes{place} are "
                 f"selling for right now, no pressure. Reply anytime if you'd like a valuation.")
-    return (f"Hi {name}, thanks for your interest! I'll send you a few listings{place} "
+    return (f"Hi {name}, thanks for your interest! I'll send you a few options{place} "
             f"to browse. Reply anytime if you'd like to talk.")
 
 
-def llm_followup(name, message, f, tier, client, model):
+def llm_followup(name, message, f, tier, client, model, matches=None):
     _, question = missing_question(f)
+    name = f.get("customer_name") or name
+    listing_note = (
+        f"The agent has these matching listings you may mention by title and price: "
+        f"{json.dumps(matches, ensure_ascii=False)}. " if matches else
+        "Never claim you already have specific listings or properties; offer to share or look for "
+        "options instead. ")
+    facts = {k: v for k, v in f.items() if k not in ("phone", "email")}
     prompt = (
         f"Write a short, friendly SMS (max 3 sentences, under 320 characters) from a real "
         f"estate agent to a {tier} lead named {name or 'the lead'}. Their message: "
-        f"\"{message}\". Known facts: {json.dumps(f, ensure_ascii=False)}. "
+        f"\"{message}\". Known facts: {json.dumps(facts, ensure_ascii=False)}. "
         f"Hot leads: suggest a call today. Warm: ask this one missing question: "
         f"\"{question or 'their availability for a call'}\". Cold: offer listings, no pressure. "
-        f"Never claim you already have specific listings or properties; offer to share or look for "
-        f"options instead. Do not invent prices or facts. Use the same currency as the lead. "
+        f"{listing_note}Mention the property type and size they want if known. "
+        f"Do not invent prices or facts. Use the same currency as the lead. "
         f"Return only the SMS text, no quotes, no sign-off placeholder."
     )
     resp = client.chat.completions.create(

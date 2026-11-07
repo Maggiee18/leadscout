@@ -13,7 +13,7 @@ WORKDIR /app
 COPY requirements.lock .
 RUN pip install -r requirements.lock
 
-COPY *.py sample_leads.csv ./
+COPY *.py sample_leads.csv sample_listings.csv ./
 COPY static ./static
 
 # Run as an unprivileged user; /data holds the SQLite file when DATABASE_URL isn't set

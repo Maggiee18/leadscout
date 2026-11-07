@@ -20,6 +20,8 @@ from db import Database
 SESSION_DAYS = 7
 REMEMBER_DAYS = 30
 RESET_MINUTES = 30
+MAX_FAILED_LOGINS = 5      # wrong passwords in a row before the account pauses
+LOCK_MINUTES = 15
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$")
 COMMON_PASSWORDS = {"password1", "password123", "12345678a", "qwerty123", "leadscout1",
                     "abc12345", "iloveyou1", "welcome1", "admin123", "letmein1"}
@@ -31,9 +33,9 @@ _DUMMY_HASH = None
 class AuthError(Exception):
     """A user-facing problem (bad input, taken email, wrong password)."""
 
-    def __init__(self, message, status=400, field=None):
+    def __init__(self, message, status=400, field=None, user_id=None):
         super().__init__(message)
-        self.status, self.field = status, field
+        self.status, self.field, self.user_id = status, field, user_id
 
 
 # ---------- Passwords ----------
@@ -107,15 +109,31 @@ def _token_hash(token):
 
 
 def _public(row):
-    return {"id": row[0], "name": row[1], "email": row[2], "created_at": row[3]}
+    return {"id": row[0], "name": row[1], "email": row[2], "created_at": row[3], "role": row[4] or "agent"}
 
 
-USER_COLS = "u.id, u.name, u.email, u.created_at"
+USER_COLS = "u.id, u.name, u.email, u.created_at, u.role"
+ROLES = ("agent", "admin")
 
 
 class Accounts:
-    def __init__(self, db: Database):
+    def __init__(self, db: Database, admin_emails=()):
         self.db = db
+        self.admin_emails = {e.strip().lower() for e in admin_emails if e.strip()}
+
+    def sync_admins(self):
+        """Accounts listed in ADMIN_EMAILS are admins; everyone else is an agent."""
+        if not self.admin_emails:
+            return
+        marks = ", ".join("?" * len(self.admin_emails))
+        self.db.execute(f"UPDATE users SET role = 'admin' WHERE email IN ({marks})", tuple(self.admin_emails))
+
+    def list_users(self):
+        rows = self.db.fetchall(
+            f"SELECT {USER_COLS}, (SELECT COUNT(*) FROM leads l WHERE l.user_id = u.id), u.locked_until "
+            "FROM users u ORDER BY u.created_at DESC LIMIT 500")
+        now = int(time.time())
+        return [{**_public(r), "leads": r[5], "locked": bool(r[6] and r[6] > now)} for r in rows]
 
     # ----- registration & login -----
 
@@ -126,15 +144,16 @@ class Accounts:
             raise AuthError("An account with this email already exists. Try logging in.",
                             status=409, field="email")
         uid, now = uuid.uuid4().hex, int(time.time())
+        role = "admin" if email in self.admin_emails else "agent"
         try:
-            self.db.execute("INSERT INTO users (id, name, email, password_hash, created_at) "
-                            "VALUES (?, ?, ?, ?, ?)", (uid, name, email, hash_password(password), now))
+            self.db.execute("INSERT INTO users (id, name, email, password_hash, created_at, role) "
+                            "VALUES (?, ?, ?, ?, ?, ?)", (uid, name, email, hash_password(password), now, role))
         except Exception as exc:  # lost a race on the unique email index
             if "unique" in str(exc).lower() or "integrity" in type(exc).__name__.lower():
                 raise AuthError("An account with this email already exists. Try logging in.",
                                 status=409, field="email") from exc
             raise
-        return {"id": uid, "name": name, "email": email, "created_at": now}
+        return {"id": uid, "name": name, "email": email, "created_at": now, "role": role}
 
     def authenticate(self, email, password):
         generic = AuthError("That email and password don't match. Please try again.", status=401)
@@ -143,13 +162,32 @@ class Accounts:
         except AuthError:
             verify_password(password or "", _dummy_hash())
             raise generic from None
-        row = self.db.fetchone(f"SELECT {USER_COLS}, u.password_hash FROM users u WHERE u.email = ?",
+        row = self.db.fetchone(f"SELECT {USER_COLS}, u.password_hash, u.locked_until FROM users u WHERE u.email = ?",
                                (email,))
         if not row:
             verify_password(password or "", _dummy_hash())
             raise generic
-        if not verify_password(password or "", row[4]):
-            raise generic
+        now = int(time.time())
+        if row[6] and row[6] > now:
+            verify_password(password or "", _dummy_hash())
+            minutes = max(1, -(-(row[6] - now) // 60))
+            raise AuthError(f"This account is paused after too many wrong passwords. Try again in {minutes} "
+                            f"minute{'s' if minutes > 1 else ''}, or reset your password.", status=429)
+        if not verify_password(password or "", row[5]):
+            with self.db.transaction() as run:
+                fails = run("UPDATE users SET failed_logins = failed_logins + 1 WHERE id = ? "
+                            "RETURNING failed_logins", (row[0],)).fetchone()[0]
+                locked = fails >= MAX_FAILED_LOGINS
+                if locked:
+                    run("UPDATE users SET failed_logins = 0, locked_until = ? WHERE id = ?",
+                        (now + LOCK_MINUTES * 60, row[0]))
+            if locked:
+                raise AuthError(f"Too many wrong passwords. This account is paused for {LOCK_MINUTES} "
+                                "minutes. You can reset your password to get back in sooner.",
+                                status=429, user_id=row[0])
+            raise AuthError(str(generic), status=401, user_id=row[0])
+        self.db.execute("UPDATE users SET failed_logins = 0, locked_until = NULL WHERE id = ? "
+                        "AND (failed_logins > 0 OR locked_until IS NOT NULL)", (row[0],))
         return _public(row)
 
     def find_by_email(self, email):
@@ -259,7 +297,8 @@ class Accounts:
                       (now, _token_hash(token)))
             if cur.rowcount != 1:
                 raise invalid
-            run("UPDATE users SET password_hash = ? WHERE id = ?", (hash_password(new_password), user_id))
+            run("UPDATE users SET password_hash = ?, failed_logins = 0, locked_until = NULL WHERE id = ?",
+                (hash_password(new_password), user_id))
             run("DELETE FROM sessions WHERE user_id = ?", (user_id,))
         row = self.db.fetchone(f"SELECT {USER_COLS} FROM users u WHERE u.id = ?", (user_id,))
         return _public(row)

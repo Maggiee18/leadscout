@@ -30,7 +30,7 @@ from auth import hash_password, verify_password  # noqa: E402
 from scorer import clean_fields, extract_with_rules, parse_json, score_lead  # noqa: E402
 
 if main.db.is_pg:  # start clean
-    for table in ("leads", "password_resets", "sessions", "users"):
+    for table in ("activity_log", "listings", "leads", "password_resets", "sessions", "users"):
         main.db.execute(f"DELETE FROM {table}")
 
 PASSWORD = "Sunrise2026"
@@ -237,9 +237,9 @@ def test_batch_50_ok_51_rejected():
 
 @pytest.mark.parametrize("content,name,msg", [
     (b"", "a.csv", "empty"),
-    (b"foo,bar\n1,2\n", "a.csv", "'message' column"),
+    (b"foo,bar\n1,2\n", "a.csv", "'message'"),
     (b"name,message\nA,\nB,  \n", "a.csv", "No leads"),
-    (b"name,message\nA,hello there", "a.txt", ".csv"),
+    (b"name,message\nA,hello there", "a.pdf", ".csv"),
     (b"\x00\x01\x02binary", "a.csv", "CSV"),
 ])
 def test_batch_invalid_files(content, name, msg):
@@ -360,7 +360,7 @@ def test_cross_site_post_blocked():
 
 def test_login_rate_limited():
     c = anon()
-    codes = [c.post("/api/auth/login", json={"email": "agent@example.com", "password": "Nope12345"}).status_code
+    codes = [c.post("/api/auth/login", json={"email": "nobody@example.com", "password": "Nope12345"}).status_code
              for _ in range(11)]
     assert codes[:10] == [401] * 10 and codes[10] == 429
 
@@ -424,8 +424,9 @@ def test_delete_one_and_clear_all():
     assert c.delete(f"/api/leads/{first}").json() == {"ok": True}
     assert c.get(f"/api/leads/{first}").status_code == 404
     assert c.delete("/api/leads").json()["deleted"] == 5
-    assert c.get("/api/leads/stats").json() == {"total": 0, "hot": 0, "warm": 0, "cold": 0,
-                                                 "average_score": None, "recent": []}
+    stats = c.get("/api/leads/stats").json()
+    assert {k: stats[k] for k in ("total", "hot", "warm", "cold", "average_score", "recent")} == {
+        "total": 0, "hot": 0, "warm": 0, "cold": 0, "average_score": None, "recent": []}
 
 
 # ---------- password reset ----------
@@ -538,7 +539,7 @@ def test_delete_account_removes_everything():
 # ---------- infrastructure ----------
 
 def test_migrations_are_idempotent():
-    assert main.db.migrate() == 3 and main.db.migrate() == 3
+    assert main.db.migrate() == 4 and main.db.migrate() == 4
 
 
 def test_health_ready_and_pages():
@@ -591,7 +592,7 @@ def test_upgrade_from_previous_release_keeps_accounts(tmp_path):
     con.commit()
     con.close()
     db = Database(path=path)
-    assert db.migrate() == 3
+    assert db.migrate() == 4
     from auth import Accounts
     assert Accounts(db).authenticate("old@example.com", PASSWORD)["name"] == "Old User"
     assert db.fetchone("SELECT COUNT(*) FROM leads")[0] == 0

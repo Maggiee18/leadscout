@@ -97,7 +97,12 @@
   // ---------- State (lead data lives on the server; nothing in browser storage) ----------
   const state = { user: null, stats: null, batch: null, status: null, lastEngine: null, samples: [],
     filter: { q: "", tier: "all", sort: "score-desc" },
-    hist: { q: "", tier: "all", sort: "newest", offset: 0, limit: 20, total: 0, items: [], loaded: false } };
+    hist: { q: "", tier: "all", sort: "newest", offset: 0, limit: 20, total: 0, items: [], loaded: false,
+      status: "all", property_type: "", location: "", budget_min: "", budget_max: "", currency: "", duplicates: false },
+    listings: [], listingsLoaded: false };
+  const STATUSES = ["New", "Contacted", "Follow-up", "Converted", "Lost"];
+  const statusClass = (s) => "st-" + String(s || "New").toLowerCase().replace(/[^a-z]/g, "");
+  const maskPhone = (p) => (p ? p.replace(/\d(?=\d{4})/g, "•") : "");
 
   let statsReq = 0;
   async function loadStats() {
@@ -142,7 +147,7 @@
   }
 
   // ---------- Router & navigation ----------
-  const VIEWS = ["dashboard", "analyze", "bulk", "history", "samples", "how", "settings"];
+  const VIEWS = ["dashboard", "analyze", "bulk", "history", "listings", "activity", "admin", "samples", "how", "settings"];
   const AUTH_VIEWS = ["login", "register", "forgot", "reset"];
   let intended = null, resetToken = null;
   const currentView = () => (location.hash.replace(/^#\/?/, "") || "dashboard").split("?")[0];
@@ -164,7 +169,8 @@
     }
     if (AUTH_VIEWS.includes(name)) { history.replaceState(null, "", "#/dashboard"); name = "dashboard"; }
     showApp();
-    const view = VIEWS.includes(name) ? name : "dashboard";
+    let view = VIEWS.includes(name) ? name : "dashboard";
+    if (view === "admin" && state.user.role !== "admin") view = "dashboard";
     $$(".view").forEach((v) => (v.hidden = v.dataset.view !== view));
     $$("[data-nav]").forEach((a) => {
       const on = a.dataset.nav === view;
@@ -175,7 +181,10 @@
     window.scrollTo(0, 0);
     document.title = `${$(`[data-view="${view}"] h1`).textContent} · LeadScout`;
     if (view === "samples") loadSamples();
-    if (view === "history") loadHistory();
+    if (view === "history") { loadHistory(); loadLocations(); }
+    if (view === "listings") loadListings();
+    if (view === "activity") loadActivity();
+    if (view === "admin") loadAdmin();
     if (view === "settings") fillSettings();
     if (view === "dashboard") loadStats();
     if (routed) $("#main").focus({ preventScroll: true });
@@ -227,12 +236,17 @@
     $$("[data-user-name]").forEach((e) => (e.textContent = user ? user.name : ""));
     $$("[data-user-email]").forEach((e) => (e.textContent = user ? user.email : ""));
     $("#dash-title").textContent = user ? `Welcome back, ${firstName(user.name)}` : "Welcome to LeadScout";
+    $$("[data-admin-only]").forEach((e) => (e.hidden = !(user && user.role === "admin")));
+    $("#dashDate").textContent = new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
     $("#topAvatar").setAttribute("aria-label", user ? `Account: ${user.name}. Open menu` : "Account menu");
   }
 
   function resetSessionData() {
     state.stats = null; state.batch = null; state.lastEngine = null;
-    Object.assign(state.hist, { q: "", tier: "all", sort: "newest", offset: 0, total: 0, items: [], loaded: false });
+    Object.assign(state.hist, { q: "", tier: "all", sort: "newest", offset: 0, total: 0, items: [], loaded: false,
+      status: "all", property_type: "", location: "", budget_min: "", budget_max: "", currency: "", duplicates: false });
+    state.listings = []; state.listingsLoaded = false;
+    syncFilterInputs();
     $("#historySearch").value = ""; $("#historySort").value = "newest";
     $$("#historyTier button").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.tier === "all")));
     $("#resultArea").replaceChildren(); $("#resultEmpty").hidden = false;
@@ -481,8 +495,7 @@
     if (!H.loaded) body.replaceChildren(h("div", { class: "history-loading", "aria-hidden": "true" }, Array.from({ length: 4 }, () => h("div", { class: "sk" }))));
     body.setAttribute("aria-busy", "true");
     try {
-      const qs = new URLSearchParams({ q: H.q, tier: H.tier, sort: H.sort, limit: H.limit, offset: H.offset });
-      const r = await api("/api/leads?" + qs);
+      const r = await api("/api/leads?" + histQuery({ sort: H.sort, limit: H.limit, offset: H.offset }));
       if (id !== histReq) return;
       if (!r.items.length && H.offset > 0) { H.offset = Math.max(0, H.offset - H.limit); return loadHistory(); }
       Object.assign(H, { items: r.items, total: r.total, loaded: true });
@@ -493,6 +506,47 @@
         h("strong", null, "Couldn't load your history"), h("p", null, err.message),
         h("button", { class: "btn btn-primary", type: "button", onclick: loadHistory }, icon("refresh"), "Try again")));
     } finally { if (id === histReq) body.setAttribute("aria-busy", "false"); }
+  }
+
+  function histQuery(extra = {}) {
+    const H = state.hist, p = { q: H.q, tier: H.tier, status: H.status, property_type: H.property_type,
+      location: H.location, budget_min: H.budget_min, budget_max: H.budget_max, currency: H.currency, ...extra };
+    if (H.duplicates) p.duplicates = "true";
+    for (const k of Object.keys(p)) if (p[k] === "" || p[k] == null) delete p[k];
+    return new URLSearchParams(p).toString();
+  }
+  function syncFilterInputs() {
+    const H = state.hist;
+    $("#fStatus").value = H.status; $("#fProperty").value = H.property_type; $("#fLocation").value = H.location;
+    $("#fMin").value = H.budget_min; $("#fMax").value = H.budget_max; $("#fCurrency").value = H.currency; $("#fDup").checked = H.duplicates;
+  }
+  const filtersActive = () => { const H = state.hist;
+    return !!(H.q || H.tier !== "all" || H.status !== "all" || H.property_type || H.location || H.budget_min || H.budget_max || H.currency || H.duplicates); };
+  async function loadLocations() {
+    try {
+      const { locations } = await api("/api/leads/locations");
+      $("#locationList").replaceChildren(...locations.map((l) => h("option", { value: l.location })));
+    } catch { /* optional helper */ }
+  }
+  async function setStatus(r, status, sel) {
+    const old = r.status;
+    try {
+      const upd = await api(`/api/leads/${encodeURIComponent(r.id)}`, { method: "PATCH", json: { status } });
+      Object.assign(r, upd);
+      toast(`${leadName(r)} marked ${status}`);
+      if (sel) sel.className = "status-select " + statusClass(status);
+      loadStats();
+      return upd;
+    } catch (err) { if (sel) sel.value = old; toast(err.message, "error"); return null; }
+  }
+  function statusSelect(r, onChange) {
+    const sel = h("select", { class: "status-select " + statusClass(r.status), "aria-label": `Status of ${leadName(r)}`,
+      onclick: (e) => e.stopPropagation() }, STATUSES.map((st) => h("option", { value: st, selected: st === (r.status || "New") }, st)));
+    sel.addEventListener("change", async () => { const u = await setStatus(r, sel.value, sel); if (u && onChange) onChange(u); });
+    return sel;
+  }
+  function dupBadge(r) {
+    return r.duplicate_of ? h("span", { class: "dup-badge", title: "Same phone, email or message as an earlier lead" }, icon("copy"), "Possible duplicate") : null;
   }
 
   function savedWhen(r) {
@@ -512,47 +566,53 @@
 
   function renderHistory() {
     const H = state.hist, body = $("#historyBody");
-    const filtered = H.q || H.tier !== "all";
+    const filtered = filtersActive();
     $("#historyExport").disabled = !H.total; $("#historyClear").disabled = !H.total && !filtered;
     if (!H.items.length) {
       body.replaceChildren(h("div", { class: "empty history-empty" },
-        h("div", { class: "empty-icon" }, icon(filtered ? "search" : "clock")),
-        h("strong", null, filtered ? "No leads match" : "No saved leads yet"),
-        h("p", null, filtered ? "Try a different search or filter." : "Leads you analyze are saved here automatically."),
-        filtered ? null : h("a", { class: "btn btn-primary", href: "#/analyze" }, icon("sparkles"), "Analyze a lead")));
+        h("div", { class: "empty-icon" }, icon(filtered ? "search" : "users")),
+        h("strong", null, filtered ? "No leads match" : "No leads yet"),
+        h("p", null, filtered ? "Try a different search or clear the filters." : "Leads you analyze or upload are saved here automatically."),
+        filtered ? h("button", { class: "btn btn-ghost", type: "button", onclick: resetFilters }, icon("refresh"), "Reset filters")
+          : h("a", { class: "btn btn-primary", href: "#/analyze" }, icon("sparkles"), "Analyze a lead")));
       $("#historyPager").hidden = true;
       return;
     }
     const actions = (r) => [
       h("button", { class: "icon-btn", type: "button", "aria-label": `View ${leadName(r)}`, title: "View", onclick: (e) => { e.stopPropagation(); openModal(r); } }, icon("eye")),
+      h("button", { class: "icon-btn", type: "button", "aria-label": `Edit ${leadName(r)}`, title: "Edit", onclick: (e) => { e.stopPropagation(); openEdit(r); } }, icon("edit")),
       h("button", { class: "icon-btn danger", type: "button", "aria-label": `Delete ${leadName(r)}`, title: "Delete", onclick: (e) => { e.stopPropagation(); deleteLead(r); } }, icon("trash")),
     ];
     const nil = (v) => v ? v : h("span", { class: "nil" }, "—");
+    const sub = (r) => [r.phone ? maskPhone(r.phone) : null, r.display.property].filter(Boolean).join(" · ") || r.message;
     const table = h("div", { class: "table-wrap" }, h("table", { class: "leads-table history-table" },
-      h("thead", null, h("tr", null, ["Lead", "Intent", "Budget", "Location", "Score", "Classification", "Saved"].map((t) => h("th", { scope: "col" }, t)),
+      h("thead", null, h("tr", null, ["Lead", "Status", "Budget", "Location", "Score", "Saved"].map((t) => h("th", { scope: "col" }, t)),
         h("th", { scope: "col" }, h("span", { class: "sr-only" }, "Actions")))),
       h("tbody", null, H.items.map((r) => {
         const w = savedWhen(r);
         return h("tr", { onclick: () => openModal(r) },
           h("td", null, h("div", { class: "lead-cell" }, h("span", { class: `avatar ${tierClass(r.tier)}` }, initials(leadName(r))),
-            h("div", null, h("strong", null, leadName(r)), h("small", { title: r.message }, r.message)))),
-          h("td", null, nil(r.display.intent)), h("td", null, nil(r.display.budget)), h("td", null, nil(r.display.location)),
-          h("td", null, h("div", { class: "score-cell", style: `--tier-c:${tierColor(r.tier)}` }, h("b", null, r.score),
-            h("span", { class: "meter", "aria-hidden": "true" }, h("span", { style: `width:${r.score}%` })))),
-          h("td", null, badge(r.tier)),
-          h("td", { class: "when", title: w.abs }, w.rel, " ", h("span", { class: "source-tag" }, r.source === "batch" ? "CSV" : "Single")),
+            h("div", null, h("strong", null, leadName(r), dupBadge(r)), h("small", { title: r.message }, sub(r))))),
+          h("td", null, statusSelect(r)),
+          h("td", null, nil(r.display.budget)), h("td", null, nil(r.display.location)),
+          h("td", null, h("div", { class: "score-cell with-tier", style: `--tier-c:${tierColor(r.tier)}` }, h("b", null, r.score),
+            h("span", { class: "meter", "aria-hidden": "true" }, h("span", { style: `width:${r.score}%` })),
+            h("span", { class: "tier-word " + tierClass(r.tier) }, icon(tierIcon(r.tier)), r.tier))),
+          h("td", { class: "when", title: `${w.abs} · ${r.source === "batch" ? "uploaded" : "analyzed singly"}` }, w.rel),
           h("td", null, h("div", { class: "row-actions" }, actions(r))));
       }))));
     const cards = h("div", { class: "lead-cards" }, H.items.map((r) => {
       const w = savedWhen(r);
       return h("article", { class: "lead-card" },
         h("div", { class: "lead-card-top" }, h("span", { class: `avatar ${tierClass(r.tier)}` }, initials(leadName(r))),
-          h("div", { style: "min-width:0" }, h("strong", null, leadName(r)), badge(r.tier)),
+          h("div", { style: "min-width:0" }, h("strong", null, leadName(r)), badge(r.tier), dupBadge(r)),
           h("div", { class: "big-score", "aria-label": `Score ${r.score}` }, r.score)),
-        h("div", { class: "meta" }, [["Intent", r.display.intent], ["Budget", r.display.budget], ["Location", r.display.location], ["Saved", w.rel]]
+        h("div", { class: "meta" }, [["Property", r.display.property], ["Budget", r.display.budget], ["Location", r.display.location], ["Saved", w.rel]]
           .map(([l, v]) => h("div", null, h("small", null, l), h("span", null, v || "—")))),
+        h("div", { class: "card-status" }, h("small", null, "Status"), statusSelect(r)),
         h("div", { class: "card-actions" },
           h("button", { class: "btn btn-ghost", type: "button", onclick: () => openModal(r) }, icon("eye"), "View details"),
+          h("button", { class: "icon-btn", type: "button", "aria-label": `Edit ${leadName(r)}`, onclick: () => openEdit(r) }, icon("edit")),
           h("button", { class: "icon-btn danger", type: "button", "aria-label": `Delete ${leadName(r)}`, onclick: () => deleteLead(r) }, icon("trash"))));
     }));
     body.replaceChildren(table, cards);
@@ -563,19 +623,19 @@
     $("#pageNext").disabled = to >= H.total;
   }
 
-  async function exportHistory() {
-    const btn = $("#historyExport"); btn.disabled = true;
-    try {
-      const all = [], H = state.hist;
-      for (let off = 0; off < 2000; off += 100) {
-        const qs = new URLSearchParams({ q: H.q, tier: H.tier, sort: H.sort, limit: 100, offset: off });
-        const r = await api("/api/leads?" + qs);
-        all.push(...r.items);
-        if (all.length >= r.total || !r.items.length) break;
-      }
-      downloadCsv(all, "leadscout_history.csv");
-    } catch (err) { toast(err.message, "error"); }
-    finally { btn.disabled = !state.hist.total; }
+  function resetFilters() {
+    Object.assign(state.hist, { q: "", tier: "all", status: "all", property_type: "", location: "", budget_min: "",
+      budget_max: "", currency: "", duplicates: false, offset: 0 });
+    $("#historySearch").value = "";
+    $$("#historyTier button").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.tier === "all")));
+    syncFilterInputs(); loadHistory();
+  }
+
+  function exportHistory() {
+    // The server builds the file (with spreadsheet formulas neutralised) and records the export
+    const a = h("a", { href: "/api/leads/export.csv?" + histQuery(), download: "leadscout_leads.csv" });
+    document.body.append(a); a.click(); a.remove();
+    toast(`Exporting ${state.hist.total} lead${state.hist.total === 1 ? "" : "s"}`);
   }
 
   function clearHistory() {
@@ -605,6 +665,11 @@
       el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump");
     };
     set("total", n); set("hot", c.Hot); set("warm", c.Warm); set("cold", c.Cold); set("avg", avg == null ? "–" : avg);
+    set("conv", S.conversion_rate == null ? "–" : S.conversion_rate + "%");
+    const conv = S.by_status ? S.by_status.Converted : 0;
+    $('[data-kpi-sub="conv"]').textContent = n ? `${conv} of ${n} leads converted` : "leads marked Converted";
+    renderMonthly(S.monthly || []);
+    renderPipeline(S.by_status || {}, n);
     const pct = (x) => (n ? Math.round((x / n) * 100) + "% of leads" : null);
     $('[data-kpi-sub="hot"]').textContent = pct(c.Hot) || "score 70+";
     $('[data-kpi="total"]').nextElementSibling.textContent = "saved to your account";
@@ -613,6 +678,7 @@
 
     // Donut
     const dist = $("#distribution"); dist.replaceChildren();
+    
     if (!n) {
       dist.append(h("div", { class: "empty" },
         h("div", { class: "empty-icon" }, icon("target")),
@@ -668,11 +734,134 @@
     }
   }
 
+  // ---------- Dashboard charts (plain SVG, no chart library) ----------
+  const SVG = "http://www.w3.org/2000/svg";
+  function svgEl(tag, attrs, ...kids) {
+    const el = document.createElementNS(SVG, tag);
+    for (const [k, v] of Object.entries(attrs || {})) el.setAttribute(k, v);
+    kids.forEach((k) => k && el.append(k));
+    return el;
+  }
+  function renderMonthly(months) {
+    const box = $("#monthly"); box.replaceChildren();
+    if (!months.length || !months.some((m) => m.leads || m.converted)) {
+      box.append(h("div", { class: "empty" }, h("div", { class: "empty-icon" }, icon("trend")),
+        h("strong", null, "No monthly data yet"), h("p", null, "As you add leads and mark them Converted, this chart shows leads and conversions each month.")));
+      return;
+    }
+    const W = 560, H = 220, padL = 34, padB = 28, padT = 14, padR = 38;
+    const max = Math.max(4, ...months.map((m) => Math.max(m.leads, m.converted)));
+    const step = Math.ceil(max / 4), top = step * 4;
+    const cw = (W - padL - padR) / months.length, bw = Math.min(26, cw * 0.32);
+    const y = (v) => padT + (H - padT - padB) * (1 - v / top);
+    const yRate = (v) => padT + (H - padT - padB) * (1 - v / 100);
+    const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, class: "chart", role: "img",
+      "aria-label": "Leads and conversions by month. " + months.map((m) => `${m.label}: ${m.leads} leads, ${m.converted} converted`).join("; ") });
+    for (let i = 0; i <= 4; i++) {
+      const v = step * i;
+      svg.append(svgEl("line", { x1: padL, x2: W - padR, y1: y(v), y2: y(v), class: "grid" }),
+        svgEl("text", { x: padL - 8, y: y(v) + 4, class: "axis", "text-anchor": "end" }, document.createTextNode(v)));
+    }
+    svg.append(svgEl("text", { x: W - padR + 8, y: yRate(100) + 4, class: "axis rate" }, document.createTextNode("100%")),
+      svgEl("text", { x: W - padR + 8, y: yRate(0) + 4, class: "axis rate" }, document.createTextNode("0%")));
+    const pts = [];
+    months.forEach((m, i) => {
+      const cx = padL + cw * i + cw / 2;
+      const bar = (v, dx, cls, label) => {
+        const rect = svgEl("rect", { x: cx + dx, y: y(0), width: bw, height: 0, rx: 4, class: cls });
+        rect.append(svgEl("title", {}, document.createTextNode(`${m.label}: ${v} ${label}`)));
+        requestAnimationFrame(() => requestAnimationFrame(() => { rect.setAttribute("y", y(v)); rect.setAttribute("height", y(0) - y(v)); }));
+        return rect;
+      };
+      svg.append(bar(m.leads, -bw - 2, "bar-leads", "leads"), bar(m.converted, 2, "bar-conv", "converted"),
+        svgEl("text", { x: cx, y: H - 8, class: "axis", "text-anchor": "middle" }, document.createTextNode(m.label.split(" ")[0])));
+      if (m.conversion_rate != null) pts.push([cx, yRate(m.conversion_rate), m]);
+    });
+    if (pts.length) {
+      svg.append(svgEl("polyline", { points: pts.map((p) => p.slice(0, 2).join(",")).join(" "), class: "rate-line" }));
+      pts.forEach(([x, yy, m]) => {
+        const dot = svgEl("circle", { cx: x, cy: yy, r: 4, class: "rate-dot" });
+        dot.append(svgEl("title", {}, document.createTextNode(`${m.label}: ${m.conversion_rate}% converted`)));
+        svg.append(dot);
+      });
+    }
+    const legend = h("ul", { class: "chart-legend" },
+      h("li", null, h("span", { class: "sw leads" }), "Leads"), h("li", null, h("span", { class: "sw conv" }), "Converted"),
+      h("li", null, h("span", { class: "sw rate" }), "Conversion rate"));
+    const table = h("table", { class: "sr-only" }, h("caption", null, "Leads and conversions by month"),
+      h("tr", null, h("th", null, "Month"), h("th", null, "Leads"), h("th", null, "Converted"), h("th", null, "Rate")),
+      months.map((m) => h("tr", null, h("td", null, m.label), h("td", null, m.leads), h("td", null, m.converted),
+        h("td", null, m.conversion_rate == null ? "—" : m.conversion_rate + "%"))));
+    box.append(h("div", { class: "chart-wrap" }, svg), legend, table);
+  }
+  function renderPipeline(by, n) {
+    const box = $("#pipeline"); box.replaceChildren();
+    if (!n) {
+      box.append(h("div", { class: "empty" }, h("div", { class: "empty-icon" }, icon("users")),
+        h("strong", null, "No leads in your pipeline"), h("p", null, "Every new lead starts as New. Move it along as you call and follow up.")));
+      return;
+    }
+    box.append(h("ul", { class: "status-pipe" }, STATUSES.map((st) => {
+      const v = by[st] || 0, pct = Math.round((v / n) * 100);
+      const fill = h("span", { class: "pl-fill " + statusClass(st) });
+      requestAnimationFrame(() => requestAnimationFrame(() => (fill.style.width = pct + "%")));
+      return h("li", null, h("button", { class: "pl-row", type: "button", "aria-label": `${st}: ${v} leads. Show them`,
+        onclick: () => { resetFiltersSilently(); state.hist.status = st; syncFilterInputs(); go("history"); } },
+        h("span", { class: "pl-name" }, h("span", { class: "st-dot " + statusClass(st) }), st),
+        h("span", { class: "pl-bar" }, fill), h("b", null, v), h("span", { class: "pl-pct" }, pct + "%")));
+    })));
+  }
+  function resetFiltersSilently() {
+    Object.assign(state.hist, { q: "", tier: "all", status: "all", property_type: "", location: "", budget_min: "",
+      budget_max: "", currency: "", duplicates: false, offset: 0, loaded: false });
+    $("#historySearch").value = "";
+    $$("#historyTier button").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.tier === "all")));
+  }
+
   // ---------- Result rendering (shared by analyze view and modal) ----------
   const FACTS = [
     ["intent", "Intent", "target"], ["timeline", "Timeline", "calendar"], ["budget", "Budget", "wallet"],
-    ["location", "Location", "pin"], ["financing", "Financing", "bank"], ["motivation", "Motivation", "heart"],
+    ["location", "Location", "pin"], ["financing", "Financing", "bank"], ["property", "Property", "home"],
+    ["motivation", "Motivation", "heart"],
   ];
+
+  function insights(r) {
+    const conf = r.confidence == null ? null : r.confidence;
+    const confTitle = "How much of this score rests on facts the customer actually stated (intent, timeline, budget, location, financing). Lower when offline rules read the message.";
+    return h("div", { class: "insights" },
+      conf == null ? null : h("div", { class: "insight", title: confTitle },
+        h("small", null, "Confidence"), h("b", null, conf + "%"),
+        h("span", { class: "conf-meter", "aria-hidden": "true" }, h("span", { style: `width:${conf}%` }))),
+      r.interest ? h("div", { class: "insight int-" + r.interest.toLowerCase() }, h("small", null, "Interest"), h("b", null, r.interest)) : null,
+      r.display.sentiment ? h("div", { class: "insight sent-" + r.display.sentiment.toLowerCase() }, h("small", null, "Tone"), h("b", null, r.display.sentiment)) : null);
+  }
+
+  function contactRow(r) {
+    if (!r.phone && !r.email) return null;
+    return h("div", { class: "contact-row" },
+      r.phone ? h("a", { class: "contact-chip", href: "tel:" + r.phone.replace(/[^+\d]/g, "") }, icon("phone"), r.phone) : null,
+      r.email ? h("a", { class: "contact-chip", href: "mailto:" + r.email }, icon("mail"), r.email) : null);
+  }
+
+  function matchesCard(r, inModal) {
+    const list = r.matches || [];
+    const head = h("div", { class: "card-head" }, h(inModal ? "h3" : "h2", null, "Suggested properties"),
+      h("span", { class: "hint" }, "From your listings, by fixed rules"));
+    if (!list.length) {
+      const intent = r.fields.intent;
+      const why = intent === "sell" ? "This lead is selling, so there's nothing to suggest."
+        : !["buy", "invest", "rent"].includes(intent) ? "Suggestions appear once the lead's intent is clear."
+        : "None of your available listings fit this lead's budget, location and needs.";
+      return h("div", { class: "card matches-card" }, head, h("p", { class: "muted small" }, why, " ",
+        h("a", { class: "link", href: "#/listings" }, "Manage listings")));
+    }
+    return h("div", { class: "card matches-card" }, head, h("ul", { class: "matches" }, list.map((m) =>
+      h("li", null, h("span", { class: "match-icon" }, icon("building")),
+        h("div", null, h("strong", null, m.title), h("small", null, [m.location, m.property_type, m.bedrooms != null ? m.bedrooms + " bed" : null].filter(Boolean).join(" · ")),
+          h("div", { class: "match-reasons" }, m.reasons.map((x) => h("span", null, icon("check"), x)))),
+        h("b", { class: "match-price" }, m.price_label),
+        m.url ? h("a", { class: "icon-btn", href: m.url, target: "_blank", rel: "noopener", "aria-label": `Open ${m.title}` }, icon("arrow")) : null))));
+  }
 
   function engineTag(r) {
     if (r.engine === "ai") return h("span", { class: "engine-tag ai", title: "Facts extracted by AI" }, icon("cpu"), h("span", null, `AI · ${prettyModel(r.model)}`));
@@ -696,7 +885,9 @@
           badge(r.tier, true),
           h(inModal ? "h3" : "h2", null, leadName(r)),
           r.engine === "ai" && r.fields.summary ? h("p", { class: "summary" }, r.fields.summary) : null,
+          contactRow(r),
           engineTag(r))),
+      insights(r),
       h("div", { class: "next-action" }, icon("arrow"),
         h("div", null, h("small", null, "Recommended next action"), h("p", null, r.next_action))));
 
@@ -746,7 +937,7 @@
       h("div", { class: "sms-actions" }, copyBtn,
         inModal ? null : h("button", { class: "btn btn-ghost", type: "button", onclick: resetAnalyze }, icon("refresh"), "Analyze another")));
 
-    return h("div", { class: "result" }, scoreCard, facts, bd, sms);
+    return h("div", { class: "result" }, scoreCard, facts, bd, matchesCard(r, inModal), sms);
   }
 
   function smsBubble(text, instant) {
@@ -832,7 +1023,8 @@
     setTimeout(scrollToResult, 60);
 
     try {
-      const r = await api("/api/score", { method: "POST", json: { name: $("#leadName").value.trim() || null, message, use_ai: $("#aiToggle").checked } });
+      const r = await api("/api/score", { method: "POST", json: { name: $("#leadName").value.trim() || null, message, use_ai: $("#aiToggle").checked,
+        phone: $("#leadPhone").value.trim() || null, email: $("#leadEmail").value.trim() || null } });
       state.lastEngine = { engine: r.engine, reason: r.fallback_reason };
       renderStatus();
       area.replaceChildren(renderResult(r));
@@ -878,7 +1070,7 @@
   function pickFile(file) {
     setUploadError(null);
     if (!file) return;
-    if (!/\.csv$/i.test(file.name)) { setUploadError("That's not a CSV file. Please choose a .csv file."); return clearFile(); }
+    if (!/\.(csv|xlsx)$/i.test(file.name)) { setUploadError("Please choose a .csv or .xlsx (Excel) file."); return clearFile(); }
     if (file.size === 0) { setUploadError("That file is empty."); return clearFile(); }
     if (file.size > MAX_BYTES) { setUploadError("That file is larger than 512 KB. Split it into smaller files."); return clearFile(); }
     selectedFile = file;
@@ -956,6 +1148,8 @@
       const reason = d.results[0] && d.results[0].fallback_reason;
       eng.append(icon("alert"), `All leads were read by offline rules${reason ? " (" + reason + ")" : ""}. Scoring rules are identical.`);
     } else eng.append(icon("cpu"), `All ${d.engines.ai} leads were read by AI.`);
+    if (d.duplicates) eng.append(h("span", { class: "dup-note" }, icon("copy"),
+      ` ${d.duplicates} lead${d.duplicates === 1 ? " looks" : "s look"} like a repeat of an earlier inquiry (same phone, email or message). They're marked in Leads.`));
     if (d.skipped_rows) eng.append(` ${d.skipped_rows} empty row${d.skipped_rows > 1 ? "s were" : " was"} skipped.`);
     renderRows();
   }
@@ -1010,12 +1204,69 @@
   function openModal(r) {
     lastFocus = document.activeElement;
     $("#modalTitle").textContent = leadName(r);
-    $("#modalBody").replaceChildren(h("p", { class: "lead-msg" }, `“${r.message}”`), renderResult(r, { inModal: true }),
-      h("div", { class: "modal-foot" }, h("button", { class: "btn btn-text danger-text", type: "button", onclick: () => deleteLead(r) }, icon("trash"), "Delete from history")));
+    const manage = h("div", { class: "manage-bar" },
+      h("label", { class: "mini-field" }, h("span", null, "Status"), statusSelect(r, (u) => openModal(u))),
+      r.duplicate_of ? h("button", { class: "dup-badge as-btn", type: "button", title: "Open the earlier lead",
+        onclick: async () => { try { openModal(await api(`/api/leads/${encodeURIComponent(r.duplicate_of)}`)); } catch (e) { toast(e.message, "error"); } } },
+        icon("copy"), "Possible duplicate: open the earlier lead") : null,
+      h("button", { class: "btn btn-ghost btn-sm", type: "button", onclick: () => openEdit(r) }, icon("edit"), "Edit details"));
+    const notes = r.notes ? h("div", { class: "notes-box" }, h("small", null, "Your notes"), h("p", null, r.notes)) : null;
+    const edited = r.rescored_at ? h("p", { class: "hint" }, icon("refresh"), " Re-scored after your edits.") : null;
+    $("#modalBody").replaceChildren(...[manage, h("p", { class: "lead-msg" }, `“${r.message}”`), notes, edited, renderResult(r, { inModal: true }),
+      h("div", { class: "modal-foot" }, h("button", { class: "btn btn-text danger-text", type: "button", onclick: () => deleteLead(r) }, icon("trash"), "Delete lead"))]
+      .filter(Boolean));
     const dlg = $("#leadModal");
-    if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+    if (!dlg.open) { if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", ""); }
     $("#modalBody").scrollTop = 0;
   }
+
+  // ---------- Edit a lead ----------
+  let editing = null;
+  function openEdit(r) {
+    editing = r;
+    const f = $("#editForm"), F = r.fields || {};
+    $("#editTitle").textContent = `Edit ${leadName(r)}`;
+    const val = { name: r.name || "", status: r.status || "New", phone: r.phone || "", email: r.email || "",
+      intent: F.intent || "unknown", location: F.location || "", budget: F.budget ?? "", currency: F.currency || "INR",
+      property_type: F.property_type || "", bedrooms: F.bedrooms ?? "", timeline_months: F.timeline_months ?? "",
+      financing: F.financing || "unknown", notes: r.notes || "" };
+    for (const [k, v] of Object.entries(val)) if (f.elements[k]) f.elements[k].value = v;
+    $("#editError").hidden = true;
+    $("#editModal").showModal();
+    f.elements.name.focus();
+  }
+  async function saveEdit(e) {
+    e.preventDefault();
+    if (!editing) return;
+    const f = $("#editForm"), el = f.elements, F = editing.fields || {};
+    const num = (v) => (v === "" ? null : Number(v));
+    const next = { name: el.name.value.trim(), status: el.status.value, phone: el.phone.value.trim() || null,
+      email: el.email.value.trim() || null, intent: el.intent.value, location: el.location.value.trim() || null,
+      budget: num(el.budget.value), currency: el.currency.value, property_type: el.property_type.value || null,
+      bedrooms: num(el.bedrooms.value), timeline_months: num(el.timeline_months.value), financing: el.financing.value,
+      notes: el.notes.value.trim() || null };
+    const old = { name: editing.name || "", status: editing.status || "New", phone: editing.phone || null, email: editing.email || null,
+      intent: F.intent || "unknown", location: F.location || null, budget: F.budget ?? null, currency: F.currency || "INR",
+      property_type: F.property_type || null, bedrooms: F.bedrooms ?? null, timeline_months: F.timeline_months ?? null,
+      financing: F.financing || "unknown", notes: editing.notes || null };
+    const changes = {};
+    for (const k of Object.keys(next)) if (next[k] !== old[k]) changes[k] = next[k];
+    if (changes.budget !== undefined || changes.currency !== undefined) { changes.budget = next.budget; changes.currency = next.currency; }
+    if (!Object.keys(changes).length) { $("#editModal").close(); return; }
+    const btn = $("#editSave"); btn.disabled = true; btn.classList.add("loading");
+    try {
+      const upd = await api(`/api/leads/${encodeURIComponent(editing.id)}`, { method: "PATCH", json: changes });
+      $("#editModal").close();
+      const moved = upd.score !== editing.score ? ` Score ${editing.score} to ${upd.score}.` : "";
+      toast(`Saved ${leadName(upd)}.${moved}`);
+      editing = null;
+      if ($("#leadModal").open) openModal(upd);
+      addLeads();
+    } catch (err) {
+      const box = $("#editError"); box.textContent = err.message; box.hidden = false;
+    } finally { btn.disabled = false; btn.classList.remove("loading"); }
+  }
+
   function closeModal() { const d = $("#leadModal"); if (d.open) d.close(); }
 
   // ---------- Samples ----------
@@ -1038,6 +1289,128 @@
         h("strong", null, "Couldn't load the samples"), h("p", null, err.message),
         h("button", { class: "btn btn-primary", type: "button", onclick: () => { state.samples = []; loadSamples(); } }, icon("refresh"), "Try again")));
     }
+  }
+
+  // ---------- Listings ----------
+  async function loadListings(force) {
+    const body = $("#listingsBody");
+    if (!state.listingsLoaded || force) {
+      body.replaceChildren(h("div", { class: "history-loading", "aria-hidden": "true" }, Array.from({ length: 3 }, () => h("div", { class: "sk" }))));
+      try { state.listings = (await api("/api/listings")).items; state.listingsLoaded = true; }
+      catch (err) {
+        if (err.status === 401) return;
+        body.replaceChildren(h("div", { class: "empty", role: "alert" }, h("div", { class: "empty-icon" }, icon("alert")),
+          h("strong", null, "Couldn't load your listings"), h("p", null, err.message),
+          h("button", { class: "btn btn-primary", type: "button", onclick: () => loadListings(true) }, icon("refresh"), "Try again")));
+        return;
+      }
+    }
+    renderListings();
+  }
+  function renderListings() {
+    const body = $("#listingsBody"), L = state.listings;
+    if (!L.length) {
+      body.replaceChildren(h("div", { class: "empty" }, h("div", { class: "empty-icon" }, icon("building")),
+        h("strong", null, "No listings yet"),
+        h("p", null, "Add your properties and LeadScout will suggest the right ones for each lead, matched on budget, location, type and bedrooms."),
+        h("div", { class: "empty-actions" },
+          h("button", { class: "btn btn-primary", type: "button", onclick: () => openListing() }, icon("plus"), "Add a listing"),
+          h("button", { class: "btn btn-ghost", type: "button", onclick: addSampleListings }, icon("sparkles"), "Try example listings"))));
+      return;
+    }
+    const stCls = (st) => "ls-" + st.replace(/\s+/g, "");
+    const actions = (it) => h("div", { class: "row-actions" },
+      h("button", { class: "icon-btn", type: "button", "aria-label": `Edit ${it.title}`, title: "Edit", onclick: () => openListing(it) }, icon("edit")),
+      h("button", { class: "icon-btn danger", type: "button", "aria-label": `Delete ${it.title}`, title: "Delete", onclick: () => deleteListing(it) }, icon("trash")));
+    const table = h("div", { class: "table-wrap" }, h("table", { class: "leads-table" },
+      h("thead", null, h("tr", null, ["Property", "Location", "For", "Price", "Status"].map((t) => h("th", { scope: "col" }, t)),
+        h("th", { scope: "col" }, h("span", { class: "sr-only" }, "Actions")))),
+      h("tbody", null, L.map((it) => h("tr", null,
+        h("td", null, h("div", { class: "lead-cell" }, h("span", { class: "avatar listing-av" }, icon("building")),
+          h("div", null, h("strong", null, it.title), h("small", null, [it.property_type, it.bedrooms != null ? it.bedrooms + " bed" : null].filter(Boolean).join(" · ") || "Type not given")))),
+        h("td", null, it.location), h("td", null, it.deal === "rent" ? "Rent" : "Sale"),
+        h("td", null, h("b", null, it.price_label)),
+        h("td", null, h("span", { class: "ls-badge " + stCls(it.status) }, it.status)),
+        h("td", null, actions(it)))))));
+    const cards = h("div", { class: "lead-cards" }, L.map((it) => h("article", { class: "lead-card" },
+      h("div", { class: "lead-card-top" }, h("span", { class: "avatar listing-av" }, icon("building")),
+        h("div", { style: "min-width:0" }, h("strong", null, it.title), h("small", null, it.location)), h("b", null, it.price_label)),
+      h("div", { class: "card-actions" }, h("span", { class: "ls-badge " + stCls(it.status) }, it.status), actions(it)))));
+    body.replaceChildren(h("div", { class: "toolbar" }, h("p", { class: "muted" }, `${L.length} listing${L.length === 1 ? "" : "s"} · `,
+      `${L.filter((x) => x.status === "available").length} available for matching`)), table, cards);
+  }
+  let editingListing = null;
+  function openListing(it) {
+    editingListing = it || null;
+    const f = $("#listingForm"); f.reset();
+    $("#listingTitle").textContent = it ? "Edit listing" : "Add listing";
+    if (it) for (const k of ["title", "location", "deal", "price", "currency", "property_type", "bedrooms", "status", "url"]) f.elements[k].value = it[k] ?? "";
+    $("#listingError").hidden = true;
+    $("#listingModal").showModal(); f.elements.title.focus();
+  }
+  async function saveListing(e) {
+    e.preventDefault();
+    const el = $("#listingForm").elements;
+    const body = { title: el.title.value.trim(), location: el.location.value.trim(), deal: el.deal.value, price: el.price.value,
+      currency: el.currency.value, property_type: el.property_type.value || null,
+      bedrooms: el.bedrooms.value === "" ? null : Number(el.bedrooms.value), status: el.status.value, url: el.url.value.trim() || null };
+    try {
+      if (editingListing) await api(`/api/listings/${encodeURIComponent(editingListing.id)}`, { method: "PATCH", json: body });
+      else await api("/api/listings", { method: "POST", json: body });
+      $("#listingModal").close();
+      toast(editingListing ? "Listing updated" : "Listing added");
+      loadListings(true);
+    } catch (err) { const b = $("#listingError"); b.textContent = err.message; b.hidden = false; }
+  }
+  function deleteListing(it) {
+    confirmDialog({ title: "Delete this listing?", text: `${it.title} will no longer be suggested to leads.`, okLabel: "Delete listing",
+      action: async () => { await api(`/api/listings/${encodeURIComponent(it.id)}`, { method: "DELETE" }); toast("Listing deleted"); loadListings(true); } });
+  }
+  async function addSampleListings() {
+    try { const r = await api("/api/listings/sample", { method: "POST" }); state.listings = r.items; state.listingsLoaded = true; renderListings();
+      toast(`Added ${r.added} example listings. Analyze a lead to see matches.`); }
+    catch (err) { toast(err.message, "error"); }
+  }
+  async function importListings(file) {
+    if (!file) return;
+    if (!/\.(csv|xlsx)$/i.test(file.name)) return toast("Please choose a .csv or .xlsx file.", "error");
+    const fd = new FormData(); fd.append("file", file);
+    try {
+      const r = await api("/api/listings/import", { method: "POST", body: fd });
+      state.listings = r.items; state.listingsLoaded = true; renderListings();
+      toast(`Imported ${r.added} listing${r.added === 1 ? "" : "s"}${r.errors.length ? `, skipped ${r.errors.length} with problems` : ""}`);
+      if (r.errors.length) toast(r.errors[0], "error");
+    } catch (err) { toast(err.message, "error"); }
+    finally { $("#listingFile").value = ""; }
+  }
+
+  // ---------- Activity log and admin ----------
+  const actIcon = (a) => ({ login: "lock", logout: "logout", login_failed: "alert", account_locked: "alert", register: "user",
+    lead_scored: "sparkles", batch_uploaded: "upload", lead_updated: "edit", lead_status: "trend", lead_deleted: "trash",
+    leads_cleared: "trash", leads_exported: "download", password_changed: "lock", password_reset: "lock" }[a] || "building");
+  function activityList(items, withUser) {
+    if (!items.length) return h("div", { class: "empty" }, h("div", { class: "empty-icon" }, icon("activity")), h("strong", null, "Nothing here yet"));
+    return h("ul", { class: "activity" }, items.map((it) => h("li", { class: /failed|locked/.test(it.action) ? "warn" : "" },
+      h("span", { class: "act-icon" }, icon(actIcon(it.action))),
+      h("div", null, h("strong", null, it.label), it.detail ? h("span", { class: "act-detail" }, it.detail) : null,
+        h("small", null, [withUser ? it.user : null, new Date(it.at * 1000).toLocaleString(), it.ip ? "IP " + it.ip : null].filter(Boolean).join(" · "))))));
+  }
+  async function loadActivity() {
+    const body = $("#activityBody");
+    try { body.replaceChildren(activityList((await api("/api/activity?limit=200")).items)); }
+    catch (err) { if (err.status !== 401) body.replaceChildren(h("p", { class: "error", role: "alert" }, err.message)); }
+  }
+  async function loadAdmin() {
+    try {
+      const [u, a] = await Promise.all([api("/api/admin/users"), api("/api/admin/activity?limit=300")]);
+      $("#adminUsers").replaceChildren(h("div", { class: "table-wrap" }, h("table", { class: "leads-table" },
+        h("thead", null, h("tr", null, ["Name", "Email", "Role", "Leads", "Joined", "Sign-in"].map((t) => h("th", { scope: "col" }, t)))),
+        h("tbody", null, u.items.map((x) => h("tr", null, h("td", null, x.name), h("td", null, x.email),
+          h("td", null, h("span", { class: "role-badge " + x.role }, x.role)), h("td", null, x.leads),
+          h("td", null, new Date(x.created_at * 1000).toLocaleDateString()),
+          h("td", null, x.locked ? h("span", { class: "ls-badge ls-sold" }, "Paused") : "OK")))))));
+      $("#adminActivity").replaceChildren(activityList(a.items, true));
+    } catch (err) { if (err.status !== 401) toast(err.message, "error"); }
   }
 
   // ---------- Wire up ----------
@@ -1115,6 +1488,28 @@
     $("#pagePrev").addEventListener("click", () => { state.hist.offset = Math.max(0, state.hist.offset - state.hist.limit); loadHistory(); $("#history-title").scrollIntoView({ block: "start" }); });
     $("#pageNext").addEventListener("click", () => { state.hist.offset += state.hist.limit; loadHistory(); $("#history-title").scrollIntoView({ block: "start" }); });
     $("#historyExport").addEventListener("click", exportHistory);
+    const H = state.hist;
+    const refilter = () => { H.offset = 0; loadHistory(); };
+    $("#fStatus").addEventListener("change", (e) => { H.status = e.target.value; refilter(); });
+    $("#fProperty").addEventListener("change", (e) => { H.property_type = e.target.value; refilter(); });
+    $("#fCurrency").addEventListener("change", (e) => { H.currency = e.target.value; refilter(); });
+    $("#fDup").addEventListener("change", (e) => { H.duplicates = e.target.checked; refilter(); });
+    let fTimer;
+    for (const [id, key] of [["#fLocation", "location"], ["#fMin", "budget_min"], ["#fMax", "budget_max"]]) {
+      $(id).addEventListener("input", (e) => { clearTimeout(fTimer); fTimer = setTimeout(() => { H[key] = e.target.value.trim(); refilter(); }, 300); });
+    }
+    $("#fReset").addEventListener("click", resetFilters);
+
+    $("#addListing").addEventListener("click", () => openListing());
+    $("#listingFile").addEventListener("change", (e) => importListings(e.target.files[0]));
+    $("#listingImportBtn").addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("#listingFile").click(); } });
+    $("#listingForm").addEventListener("submit", saveListing);
+    $("#editForm").addEventListener("submit", saveEdit);
+    for (const id of ["#editModal", "#listingModal"]) {
+      $$(`${id} [data-close]`).forEach((b) => b.addEventListener("click", () => $(id).close()));
+      $(id).addEventListener("click", (e) => { if (e.target === e.currentTarget) $(id).close(); });
+    }
+    $("#activityRefresh").addEventListener("click", loadActivity);
     $("#historyClear").addEventListener("click", clearHistory);
 
     $("#profileForm").addEventListener("submit", submitProfile);
