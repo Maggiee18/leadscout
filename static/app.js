@@ -98,9 +98,19 @@
   const state = { user: null, stats: null, batch: null, status: null, lastEngine: null, samples: [],
     filter: { q: "", tier: "all", sort: "score-desc" },
     hist: { q: "", tier: "all", sort: "newest", offset: 0, limit: 20, total: 0, items: [], loaded: false,
-      status: "all", property_type: "", location: "", budget_min: "", budget_max: "", currency: "", duplicates: false },
-    listings: [], listingsLoaded: false };
-  const STATUSES = ["New", "Contacted", "Follow-up", "Converted", "Lost"];
+      status: "all", property_type: "", location: "", budget_min: "", budget_max: "", currency: "", duplicates: false,
+      priority: "", followup: "" },
+    listings: [], listingsLoaded: false, follow: null, compare: new Map(), trend: "monthly" };
+  const STATUSES = ["New", "Contacted", "Follow-up", "Negotiating", "Converted", "Lost"];
+  const OPEN_STATUSES = ["New", "Contacted", "Follow-up", "Negotiating"];
+  const PRIORITIES = ["High", "Medium", "Low"];
+  const FILTER_DEFAULTS = { q: "", tier: "all", status: "all", property_type: "", location: "", budget_min: "",
+    budget_max: "", currency: "", duplicates: false, priority: "", followup: "", offset: 0 };
+  const store = {  // browser storage is a convenience only; every read and write may fail
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch { /* private mode */ } },
+  };
+  state.trend = store.get("ls_trend") === "weekly" ? "weekly" : "monthly";
   const statusClass = (s) => "st-" + String(s || "New").toLowerCase().replace(/[^a-z]/g, "");
   const maskPhone = (p) => (p ? p.replace(/\d(?=\d{4})/g, "•") : "");
 
@@ -110,6 +120,7 @@
     try {
       const st = await api("/api/leads/stats");
       if (id === statsReq) { state.stats = st; renderDashboard(); }
+      loadFollowUps();
     } catch (err) {
       if (err.status !== 401 && id === statsReq) toast("Couldn't load your dashboard. " + err.message, "error");
     }
@@ -243,9 +254,9 @@
 
   function resetSessionData() {
     state.stats = null; state.batch = null; state.lastEngine = null;
-    Object.assign(state.hist, { q: "", tier: "all", sort: "newest", offset: 0, total: 0, items: [], loaded: false,
-      status: "all", property_type: "", location: "", budget_min: "", budget_max: "", currency: "", duplicates: false });
-    state.listings = []; state.listingsLoaded = false;
+    Object.assign(state.hist, FILTER_DEFAULTS, { sort: "newest", total: 0, items: [], loaded: false });
+    state.listings = []; state.listingsLoaded = false; state.follow = null; state.compare.clear();
+    renderCompareBar(); renderFollowUps();
     syncFilterInputs();
     $("#historySearch").value = ""; $("#historySort").value = "newest";
     $$("#historyTier button").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.tier === "all")));
@@ -510,7 +521,9 @@
 
   function histQuery(extra = {}) {
     const H = state.hist, p = { q: H.q, tier: H.tier, status: H.status, property_type: H.property_type,
-      location: H.location, budget_min: H.budget_min, budget_max: H.budget_max, currency: H.currency, ...extra };
+      location: H.location, budget_min: H.budget_min, budget_max: H.budget_max, currency: H.currency,
+      priority: H.priority, followup: H.followup, ...extra };
+    if (H.followup) p.tz = new Date().getTimezoneOffset();
     if (H.duplicates) p.duplicates = "true";
     for (const k of Object.keys(p)) if (p[k] === "" || p[k] == null) delete p[k];
     return new URLSearchParams(p).toString();
@@ -519,15 +532,216 @@
     const H = state.hist;
     $("#fStatus").value = H.status; $("#fProperty").value = H.property_type; $("#fLocation").value = H.location;
     $("#fMin").value = H.budget_min; $("#fMax").value = H.budget_max; $("#fCurrency").value = H.currency; $("#fDup").checked = H.duplicates;
+    $("#fFollow").value = H.followup; $("#fPriority").value = H.priority; $("#historySort").value = H.sort;
   }
   const filtersActive = () => { const H = state.hist;
-    return !!(H.q || H.tier !== "all" || H.status !== "all" || H.property_type || H.location || H.budget_min || H.budget_max || H.currency || H.duplicates); };
+    return !!(H.q || H.tier !== "all" || H.status !== "all" || H.property_type || H.location || H.budget_min || H.budget_max || H.currency || H.duplicates || H.priority || H.followup); };
   async function loadLocations() {
     try {
       const { locations } = await api("/api/leads/locations");
       $("#locationList").replaceChildren(...locations.map((l) => h("option", { value: l.location })));
     } catch { /* optional helper */ }
   }
+  // ---------- Follow ups, priority, WhatsApp ----------
+  const DAY_MS = 86400000;
+  const startOfToday = () => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime(); };
+  function followInfo(r) {
+    if (!r.follow_up_at) return null;
+    const t = r.follow_up_at * 1000, d = new Date(t), today = startOfToday();
+    const time = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    const date = d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+    const abs = d.toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+    if (!OPEN_STATUSES.includes(r.status || "New")) return { text: date, cls: "done", abs };
+    if (t < today) { const days = Math.ceil((today - t) / DAY_MS); return { text: `Overdue ${days} day${days === 1 ? "" : "s"}`, cls: "overdue", abs }; }
+    if (t < today + DAY_MS) return { text: `Today ${time}`, cls: "today", abs };  // overdue only once the day has passed
+    if (t < today + 2 * DAY_MS) return { text: `Tomorrow ${time}`, cls: "later", abs };
+    return { text: `${date} ${time}`, cls: "later", abs };
+  }
+  function followChip(r, empty = true) {
+    const f = followInfo(r);
+    if (!f) return empty ? h("span", { class: "fu-chip none" }, "Not set") : null;
+    return h("span", { class: "fu-chip " + f.cls, title: "Next follow up: " + f.abs }, icon(f.cls === "overdue" ? "alert" : "clock"), f.text);
+  }
+  const priorityTag = (r) => h("span", { class: "prio prio-" + String(r.priority || "Low").toLowerCase(), title: "Priority" }, r.priority || "Low");
+  const pad2 = (n) => String(n).padStart(2, "0");
+  const toLocalInput = (ts) => { if (!ts) return ""; const d = new Date(ts * 1000);
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
+  const fromLocalInput = (v) => (v ? Math.floor(new Date(v).getTime() / 1000) : null);
+  const atHour = (daysAhead, hour) => { const d = new Date(); d.setDate(d.getDate() + daysAhead); d.setHours(hour, 0, 0, 0); return Math.floor(d.getTime() / 1000); };
+
+  // WhatsApp needs the full international number. A leading + or 00 is used as given; a 10 digit number
+  // gets +91 when the budget is in rupees and +1 when it is in dollars. Otherwise we don't guess.
+  function waNumber(r) {
+    const raw = (r.phone || "").trim();
+    let d = raw.replace(/\D/g, "");
+    if (!d) return null;
+    if (raw.startsWith("+")) return d.length >= 8 && d.length <= 15 ? d : null;
+    if (d.startsWith("00")) return d.slice(2);
+    if (d.length === 11 && d.startsWith("0")) d = d.slice(1);
+    if (d.length === 10) {
+      const cur = (r.fields || {}).currency;
+      return cur === "USD" ? "1" + d : cur === "INR" ? "91" + d : null;
+    }
+    return d.length >= 11 && d.length <= 15 ? d : null;
+  }
+  const waLink = (r, text) => { const n = waNumber(r); return n ? `https://wa.me/${n}${text ? "?text=" + encodeURIComponent(text) : ""}` : null; };
+  function waButton(r, text, label = "Send on WhatsApp") {
+    const href = waLink(r, text);
+    if (!r.phone) return null;
+    if (!href) return h("span", { class: "btn btn-ghost is-disabled", title: "Add the country code to the phone number (for example +91 or +1) to open WhatsApp" }, icon("chat"), label);
+    return h("a", { class: "btn btn-wa", href, target: "_blank", rel: "noopener noreferrer", title: "Opens WhatsApp with this reply filled in. Nothing is sent until you press send." }, icon("chat"), label);
+  }
+
+  async function patchLead(r, json, msg) {
+    try {
+      const upd = await api(`/api/leads/${encodeURIComponent(r.id)}`, { method: "PATCH", json });
+      Object.assign(r, upd);
+      if (msg) toast(typeof msg === "function" ? msg(upd) : msg);
+      loadStats();
+      if ($("#leadModal").open && $("#modalBody").dataset.lead === r.id) openModal(upd);
+      if (currentView() === "history") loadHistory();
+      return upd;
+    } catch (err) { toast(err.message, "error"); return null; }
+  }
+
+  let followReq = 0;
+  async function loadFollowUps() {
+    const id = ++followReq;
+    try {
+      const f = await api("/api/leads/followups?tz=" + new Date().getTimezoneOffset());
+      if (id !== followReq) return;
+      state.follow = f; renderFollowUps(); maybeNotify();
+    } catch { /* the dashboard still works without reminders */ }
+  }
+  function updateDueBadge() {
+    const n = state.follow ? state.follow.due : 0;
+    $$("[data-due-badge]").forEach((b) => { b.hidden = !n; b.textContent = n > 99 ? "99+" : String(n);
+      b.setAttribute("aria-label", `${n} follow up${n === 1 ? "" : "s"} due`); });
+  }
+  function showFollowUps(kind) {
+    resetFiltersSilently();
+    Object.assign(state.hist, { followup: kind, sort: "followup" });
+    syncFilterInputs(); go("history");
+  }
+  function renderFollowUps() {
+    updateDueBadge();
+    const box = $("#followups"), F = state.follow;
+    if (!F) { box.replaceChildren(); return; }
+    const total = F.overdue.total + F.today.total + F.upcoming.total;
+    if (!total) {
+      box.replaceChildren(h("div", { class: "empty compact" }, h("div", { class: "empty-icon" }, icon("bell")),
+        h("strong", null, "Nothing to follow up"),
+        h("p", null, "Hot leads get a follow up for today and Warm leads one in three days. You can set or move one from any lead.")));
+      return;
+    }
+    const col = (kind, title, data, cls) => h("div", { class: "fu-col " + cls },
+      h("div", { class: "fu-col-head" }, h("strong", null, title), h("span", { class: "fu-count" }, data.total)),
+      data.items.length ? h("ul", { class: "fu-list" }, data.items.slice(0, 5).map((r) => h("li", null,
+        h("button", { class: "fu-item", type: "button", onclick: () => openModal(r), "aria-label": `Open ${leadName(r)}, ${r.tier}, follow up ${followInfo(r).text}` },
+          h("span", { class: `avatar sm ${tierClass(r.tier)}` }, initials(leadName(r))),
+          h("span", { class: "who" }, h("strong", null, leadName(r)), h("small", null, followInfo(r).text, " · ", r.priority, " priority"))),
+        h("button", { class: "icon-btn sm", type: "button", title: "Done: log the contact and clear this follow up", "aria-label": `Done with ${leadName(r)}`,
+          onclick: () => patchLead(r, { contacted: true, follow_up_at: null }, `Logged contact with ${leadName(r)}. Set the next follow up from the lead when you have one.`) }, icon("check")))))
+        : h("p", { class: "muted small" }, "None"),
+      data.total > 5 ? h("button", { class: "btn btn-text btn-sm", type: "button", onclick: () => showFollowUps(kind) }, `See all ${data.total}`) : null);
+    box.replaceChildren(h("div", { class: "fu-grid" },
+      col("overdue", "Overdue", F.overdue, "is-overdue"), col("today", "Due today", F.today, "is-today"), col("upcoming", "Next 7 days", F.upcoming, "is-later")));
+  }
+  const NOTIFY_KEY = "ls_notify", SEEN_KEY = "ls_notified";
+  const canNotify = () => "Notification" in window;
+  function initNotifyToggle() {
+    const t = $("#notifyToggle");
+    if (!canNotify()) { $("#notifyWrap").hidden = true; return; }
+    t.checked = store.get(NOTIFY_KEY) === "1" && Notification.permission === "granted";
+    t.addEventListener("change", async () => {
+      if (!t.checked) { store.set(NOTIFY_KEY, "0"); return; }
+      let p = Notification.permission;
+      if (p === "default") p = await Notification.requestPermission();
+      if (p !== "granted") { t.checked = false; toast("Notifications are blocked for this site. Allow them in your browser settings to get reminders.", "error"); return; }
+      store.set(NOTIFY_KEY, "1");
+      toast("You'll get a reminder in this browser when a follow up is due, while LeadScout is open.");
+      maybeNotify();
+    });
+  }
+  function maybeNotify() {
+    if (!canNotify() || Notification.permission !== "granted" || store.get(NOTIFY_KEY) !== "1" || !state.follow) return;
+    let seen; try { seen = JSON.parse(store.get(SEEN_KEY) || "{}"); } catch { seen = {}; }
+    const now = Date.now() / 1000;
+    const due = [...state.follow.overdue.items, ...state.follow.today.items].filter((r) => r.follow_up_at <= now && seen[r.id] !== r.follow_up_at);
+    due.slice(0, 3).forEach((r) => {
+      // Only the name, tier and next step: never the customer's message or contact details
+      const n = new Notification(`Follow up: ${leadName(r)}`, { body: `${r.tier} lead, ${r.priority} priority. ${r.next_action}`, tag: "ls-" + r.id });
+      n.onclick = () => { window.focus(); openModal(r); n.close(); };
+    });
+    due.forEach((r) => (seen[r.id] = r.follow_up_at));
+    store.set(SEEN_KEY, JSON.stringify(Object.fromEntries(Object.entries(seen).slice(-200))));
+  }
+
+  // ---------- Compare ----------
+  function toggleCompare(r, on, box) {
+    const C = state.compare;
+    if (on && !C.has(r.id) && C.size >= 4) { if (box) box.checked = false; toast("You can compare up to 4 leads at a time.", "error"); return; }
+    if (on) C.set(r.id, r); else C.delete(r.id);
+    const row = box && box.closest("tr");
+    if (row) row.classList.toggle("selected", on);
+    renderCompareBar();
+  }
+  function compareBox(r) {
+    return h("input", { type: "checkbox", class: "cmp-check", checked: state.compare.has(r.id), "aria-label": `Select ${leadName(r)} to compare`,
+      onclick: (e) => e.stopPropagation(), onchange: (e) => toggleCompare(r, e.target.checked, e.target) });
+  }
+  function renderCompareBar() {
+    const n = state.compare.size, bar = $("#compareBar");
+    bar.hidden = !n;
+    $("#compareInfo").textContent = n < 2 ? `${n} selected. Pick at least 2 leads to compare.` : `${n} leads selected`;
+    $("#compareGo").disabled = n < 2;
+  }
+  function openCompare() {
+    const leads = [...state.compare.values()];
+    if (leads.length < 2) return;
+    const pts = (r, factor) => r.breakdown.filter((b) => b.factor === factor).reduce((a, b) => a + b.points, 0);
+    const soon = (r) => (r.fields.timeline_months == null ? 999 : r.fields.timeline_months);
+    const rows = [
+      ["Score", (r) => h("span", { class: "cmp-score" }, h("b", null, r.score), badge(r.tier)), (r) => r.score],
+      ["Status", (r) => r.status || "New"],
+      ["Priority", (r) => priorityTag(r), (r) => ({ High: 3, Medium: 2, Low: 1 }[r.priority] || 0)],
+      ["Next follow up", (r) => followChip(r)],
+      ["Intent", (r) => r.display.intent],
+      ["Timeline", (r) => r.display.timeline, (r) => -soon(r)],
+      ["Budget", (r) => r.display.budget],
+      ["Location", (r) => r.display.location],
+      ["Financing", (r) => r.display.financing, (r) => pts(r, "Financing")],
+      ["Property", (r) => r.display.property],
+      ["Motivation", (r) => r.display.motivation],
+      ["Confidence", (r) => (r.confidence == null ? null : r.confidence + "%"), (r) => r.confidence ?? -1],
+      ["Interest", (r) => r.interest],
+      ["Tone", (r) => r.display.sentiment],
+      ["Red flags", (r) => (r.fields.red_flags.length ? r.fields.red_flags.join(", ") : "None"), (r) => -r.fields.red_flags.length],
+      ["Best listing match", (r) => (r.matches && r.matches[0] ? `${r.matches[0].title} (${r.matches[0].price_label})` : null)],
+      ["Next action", (r) => r.next_action],
+    ];
+    const table = h("table", { class: "compare-table" },
+      h("caption", { class: "sr-only" }, "Leads side by side. The strongest value in each row is highlighted."),
+      h("thead", null, h("tr", null, h("th", { scope: "col" }, h("span", { class: "sr-only" }, "Detail")),
+        leads.map((r) => h("th", { scope: "col" }, h("div", { class: "cmp-head" }, h("span", { class: `avatar ${tierClass(r.tier)}` }, initials(leadName(r))),
+          h("strong", null, leadName(r)),
+          h("button", { class: "btn btn-text btn-sm", type: "button", onclick: () => { $("#compareModal").close(); openModal(r); } }, "Open")))))),
+      h("tbody", null, rows.map(([label, show, rank]) => {
+        let best = null;
+        if (rank) { const vals = leads.map(rank); const top = Math.max(...vals); if (vals.filter((v) => v === top).length < leads.length) best = top; }
+        return h("tr", null, h("th", { scope: "row" }, label), leads.map((r) => {
+          const v = show(r), isBest = best != null && rank(r) === best;
+          return h("td", { class: isBest ? "best" : "" }, v == null || v === "" ? h("span", { class: "nil" }, "—") : v,
+            isBest ? h("span", { class: "sr-only" }, " (strongest)") : null);
+        }));
+      })));
+    const lead = [...leads].sort((a, b) => b.score - a.score || (b.confidence || 0) - (a.confidence || 0))[0];
+    $("#compareBody").replaceChildren(
+      h("p", { class: "compare-sum" }, icon("target"), h("span", null, h("strong", null, leadName(lead)), ` is the strongest of these (score ${lead.score}). Highlighted cells are the strongest value in each row.`)),
+      h("div", { class: "cmp-wrap" }, table));
+    $("#compareModal").showModal();
+  }
+
   async function setStatus(r, status, sel) {
     const old = r.status;
     try {
@@ -586,29 +800,33 @@
     const nil = (v) => v ? v : h("span", { class: "nil" }, "—");
     const sub = (r) => [r.phone ? maskPhone(r.phone) : null, r.display.property].filter(Boolean).join(" · ") || r.message;
     const table = h("div", { class: "table-wrap" }, h("table", { class: "leads-table history-table" },
-      h("thead", null, h("tr", null, ["Lead", "Status", "Budget", "Location", "Score", "Saved"].map((t) => h("th", { scope: "col" }, t)),
+      h("thead", null, h("tr", null, h("th", { scope: "col", class: "cmp-col" }, h("span", { class: "sr-only" }, "Compare")),
+        ["Lead", "Status", "Budget", "Location", "Score", "Follow up"].map((t) => h("th", { scope: "col" }, t)),
         h("th", { scope: "col" }, h("span", { class: "sr-only" }, "Actions")))),
       h("tbody", null, H.items.map((r) => {
         const w = savedWhen(r);
-        return h("tr", { onclick: () => openModal(r) },
-          h("td", null, h("div", { class: "lead-cell" }, h("span", { class: `avatar ${tierClass(r.tier)}` }, initials(leadName(r))),
+        return h("tr", { onclick: () => openModal(r), class: state.compare.has(r.id) ? "selected" : "" },
+          h("td", { class: "cmp-col" }, compareBox(r)),
+          h("td", { title: `Saved ${w.abs}, ${r.source === "batch" ? "uploaded" : "analyzed singly"}` }, h("div", { class: "lead-cell" }, h("span", { class: `avatar ${tierClass(r.tier)}` }, initials(leadName(r))),
             h("div", null, h("strong", null, leadName(r), dupBadge(r)), h("small", { title: r.message }, sub(r))))),
           h("td", null, statusSelect(r)),
           h("td", null, nil(r.display.budget)), h("td", null, nil(r.display.location)),
           h("td", null, h("div", { class: "score-cell with-tier", style: `--tier-c:${tierColor(r.tier)}` }, h("b", null, r.score),
             h("span", { class: "meter", "aria-hidden": "true" }, h("span", { style: `width:${r.score}%` })),
             h("span", { class: "tier-word " + tierClass(r.tier) }, icon(tierIcon(r.tier)), r.tier))),
-          h("td", { class: "when", title: `${w.abs} · ${r.source === "batch" ? "uploaded" : "analyzed singly"}` }, w.rel),
+          h("td", null, h("div", { class: "fu-cell" }, followChip(r), priorityTag(r))),
           h("td", null, h("div", { class: "row-actions" }, actions(r))));
       }))));
     const cards = h("div", { class: "lead-cards" }, H.items.map((r) => {
       const w = savedWhen(r);
       return h("article", { class: "lead-card" },
         h("div", { class: "lead-card-top" }, h("span", { class: `avatar ${tierClass(r.tier)}` }, initials(leadName(r))),
-          h("div", { style: "min-width:0" }, h("strong", null, leadName(r)), badge(r.tier), dupBadge(r)),
+          compareBox(r),
+          h("div", { style: "min-width:0" }, h("strong", null, leadName(r)), badge(r.tier), priorityTag(r), dupBadge(r)),
           h("div", { class: "big-score", "aria-label": `Score ${r.score}` }, r.score)),
-        h("div", { class: "meta" }, [["Property", r.display.property], ["Budget", r.display.budget], ["Location", r.display.location], ["Saved", w.rel]]
+        h("div", { class: "meta" }, [["Property", r.display.property], ["Budget", r.display.budget], ["Location", r.display.location], ["Follow up", followChip(r)]]
           .map(([l, v]) => h("div", null, h("small", null, l), h("span", null, v || "—")))),
+        h("small", { class: "muted saved-line" }, "Saved ", w.rel),
         h("div", { class: "card-status" }, h("small", null, "Status"), statusSelect(r)),
         h("div", { class: "card-actions" },
           h("button", { class: "btn btn-ghost", type: "button", onclick: () => openModal(r) }, icon("eye"), "View details"),
@@ -624,8 +842,7 @@
   }
 
   function resetFilters() {
-    Object.assign(state.hist, { q: "", tier: "all", status: "all", property_type: "", location: "", budget_min: "",
-      budget_max: "", currency: "", duplicates: false, offset: 0 });
+    Object.assign(state.hist, FILTER_DEFAULTS);
     $("#historySearch").value = "";
     $$("#historyTier button").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.tier === "all")));
     syncFilterInputs(); loadHistory();
@@ -668,7 +885,7 @@
     set("conv", S.conversion_rate == null ? "–" : S.conversion_rate + "%");
     const conv = S.by_status ? S.by_status.Converted : 0;
     $('[data-kpi-sub="conv"]').textContent = n ? `${conv} of ${n} leads converted` : "leads marked Converted";
-    renderMonthly(S.monthly || []);
+    renderMonthly(S[state.trend] || [], state.trend);
     renderPipeline(S.by_status || {}, n);
     const pct = (x) => (n ? Math.round((x / n) * 100) + "% of leads" : null);
     $('[data-kpi-sub="hot"]').textContent = pct(c.Hot) || "score 70+";
@@ -742,11 +959,20 @@
     kids.forEach((k) => k && el.append(k));
     return el;
   }
-  function renderMonthly(months) {
+  function setTrend(period) {
+    state.trend = period; store.set("ls_trend", period);
+    $$("#trendToggle button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.period === period)));
+    renderMonthly((state.stats || {})[period] || [], period);
+  }
+  function renderMonthly(months, period = "monthly") {
     const box = $("#monthly"); box.replaceChildren();
+    const weekly = period === "weekly", unit = weekly ? "week" : "month";
+    $("#trendTitle").textContent = weekly ? "Leads and conversions by week" : "Leads and conversions by month";
+    $$("#trendToggle button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.period === period)));
     if (!months.length || !months.some((m) => m.leads || m.converted)) {
       box.append(h("div", { class: "empty" }, h("div", { class: "empty-icon" }, icon("trend")),
-        h("strong", null, "No monthly data yet"), h("p", null, "As you add leads and mark them Converted, this chart shows leads and conversions each month.")));
+        h("strong", null, weekly ? "No weekly data yet" : "No monthly data yet"),
+        h("p", null, `As you add leads and mark them Converted, this chart shows leads and conversions each ${unit}.`)));
       return;
     }
     const W = 560, H = 220, padL = 34, padB = 28, padT = 14, padR = 38;
@@ -756,7 +982,7 @@
     const y = (v) => padT + (H - padT - padB) * (1 - v / top);
     const yRate = (v) => padT + (H - padT - padB) * (1 - v / 100);
     const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, class: "chart", role: "img",
-      "aria-label": "Leads and conversions by month. " + months.map((m) => `${m.label}: ${m.leads} leads, ${m.converted} converted`).join("; ") });
+      "aria-label": `Leads and conversions by ${unit}. ` + months.map((m) => `${m.label}: ${m.leads} leads, ${m.converted} converted`).join("; ") });
     for (let i = 0; i <= 4; i++) {
       const v = step * i;
       svg.append(svgEl("line", { x1: padL, x2: W - padR, y1: y(v), y2: y(v), class: "grid" }),
@@ -774,7 +1000,7 @@
         return rect;
       };
       svg.append(bar(m.leads, -bw - 2, "bar-leads", "leads"), bar(m.converted, 2, "bar-conv", "converted"),
-        svgEl("text", { x: cx, y: H - 8, class: "axis", "text-anchor": "middle" }, document.createTextNode(m.label.split(" ")[0])));
+        svgEl("text", { x: cx, y: H - 8, class: "axis", "text-anchor": "middle" }, document.createTextNode(weekly ? m.label : m.label.split(" ")[0])));
       if (m.conversion_rate != null) pts.push([cx, yRate(m.conversion_rate), m]);
     });
     if (pts.length) {
@@ -788,8 +1014,8 @@
     const legend = h("ul", { class: "chart-legend" },
       h("li", null, h("span", { class: "sw leads" }), "Leads"), h("li", null, h("span", { class: "sw conv" }), "Converted"),
       h("li", null, h("span", { class: "sw rate" }), "Conversion rate"));
-    const table = h("table", { class: "sr-only" }, h("caption", null, "Leads and conversions by month"),
-      h("tr", null, h("th", null, "Month"), h("th", null, "Leads"), h("th", null, "Converted"), h("th", null, "Rate")),
+    const table = h("table", { class: "sr-only" }, h("caption", null, `Leads and conversions by ${unit}`),
+      h("tr", null, h("th", null, weekly ? "Week starting" : "Month"), h("th", null, "Leads"), h("th", null, "Converted"), h("th", null, "Rate")),
       months.map((m) => h("tr", null, h("td", null, m.label), h("td", null, m.leads), h("td", null, m.converted),
         h("td", null, m.conversion_rate == null ? "—" : m.conversion_rate + "%"))));
     box.append(h("div", { class: "chart-wrap" }, svg), legend, table);
@@ -812,8 +1038,7 @@
     })));
   }
   function resetFiltersSilently() {
-    Object.assign(state.hist, { q: "", tier: "all", status: "all", property_type: "", location: "", budget_min: "",
-      budget_max: "", currency: "", duplicates: false, offset: 0, loaded: false });
+    Object.assign(state.hist, FILTER_DEFAULTS, { loaded: false });
     $("#historySearch").value = "";
     $$("#historyTier button").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.tier === "all")));
   }
@@ -840,7 +1065,8 @@
     if (!r.phone && !r.email) return null;
     return h("div", { class: "contact-row" },
       r.phone ? h("a", { class: "contact-chip", href: "tel:" + r.phone.replace(/[^+\d]/g, "") }, icon("phone"), r.phone) : null,
-      r.email ? h("a", { class: "contact-chip", href: "mailto:" + r.email }, icon("mail"), r.email) : null);
+      r.email ? h("a", { class: "contact-chip", href: "mailto:" + r.email }, icon("mail"), r.email) : null,
+      waLink(r) ? h("a", { class: "contact-chip wa", href: waLink(r), target: "_blank", rel: "noopener noreferrer" }, icon("chat"), "WhatsApp") : null);
   }
 
   function matchesCard(r, inModal) {
@@ -934,7 +1160,7 @@
         smsBubble(r.sms, inModal),
         h("div", { class: "bubble-meta" }, h("span", null, `${r.sms.length} characters`),
           h("span", null, r.sms_engine === "ai" ? "Written by AI" : "From template"))),
-      h("div", { class: "sms-actions" }, copyBtn,
+      h("div", { class: "sms-actions" }, copyBtn, waButton(r, r.sms),
         inModal ? null : h("button", { class: "btn btn-ghost", type: "button", onclick: resetAnalyze }, icon("refresh"), "Analyze another")));
 
     return h("div", { class: "result" }, scoreCard, facts, bd, matchesCard(r, inModal), sms);
@@ -1204,15 +1430,38 @@
   function openModal(r) {
     lastFocus = document.activeElement;
     $("#modalTitle").textContent = leadName(r);
+    const prioSel = h("select", { class: "prio-select", "aria-label": `Priority of ${leadName(r)}` },
+      PRIORITIES.map((p) => h("option", { value: p, selected: p === r.priority }, p)));
+    prioSel.addEventListener("change", () => patchLead(r, { priority: prioSel.value }, `${leadName(r)} is now ${prioSel.value} priority`));
+    const when = h("input", { type: "datetime-local", class: "fu-input", value: toLocalInput(r.follow_up_at), "aria-label": "Next follow up" });
+    when.addEventListener("change", () => { const ts = fromLocalInput(when.value);
+      patchLead(r, { follow_up_at: ts }, ts ? `Follow up set for ${new Date(ts * 1000).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}` : "Follow up cleared"); });
+    const quick = (label, ts) => h("button", { class: "chip sm", type: "button", onclick: () => patchLead(r, { follow_up_at: ts },
+      `Follow up set for ${new Date(ts * 1000).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}`) }, label);
+    const last = r.last_contacted_at ? `Last contacted ${timeAgo(new Date(r.last_contacted_at * 1000).toISOString())}` : "Not contacted yet";
+    const follow = h("div", { class: "follow-bar" },
+      h("div", { class: "fb-row" },
+        h("span", { class: "fb-label" }, icon("bell"), "Next follow up"), followChip(r),
+        h("label", { class: "sr-only", for: "fuWhen" }, "Pick a date and time"), Object.assign(when, { id: "fuWhen" }),
+        r.follow_up_at ? h("button", { class: "btn btn-text btn-sm", type: "button", onclick: () => patchLead(r, { follow_up_at: null }, "Follow up cleared") }, "Clear") : null),
+      h("div", { class: "fb-row" },
+        h("div", { class: "chips", role: "group", "aria-label": "Quick follow up times" },
+          quick("In 2 hours", Math.floor(Date.now() / 1000) + 7200), quick("Tomorrow 10 am", atHour(1, 10)),
+          quick("In 3 days", atHour(3, 10)), quick("Next week", atHour(7, 10))),
+        h("span", { class: "fb-last" }, icon("clock"), last),
+        h("button", { class: "btn btn-ghost btn-sm", type: "button", title: "Record that you called, messaged or met this lead just now",
+          onclick: () => patchLead(r, { contacted: true }, `Contact with ${leadName(r)} logged`) }, icon("check"), "Log contact")));
     const manage = h("div", { class: "manage-bar" },
       h("label", { class: "mini-field" }, h("span", null, "Status"), statusSelect(r, (u) => openModal(u))),
+      h("label", { class: "mini-field" }, h("span", null, "Priority"), prioSel),
       r.duplicate_of ? h("button", { class: "dup-badge as-btn", type: "button", title: "Open the earlier lead",
         onclick: async () => { try { openModal(await api(`/api/leads/${encodeURIComponent(r.duplicate_of)}`)); } catch (e) { toast(e.message, "error"); } } },
         icon("copy"), "Possible duplicate: open the earlier lead") : null,
       h("button", { class: "btn btn-ghost btn-sm", type: "button", onclick: () => openEdit(r) }, icon("edit"), "Edit details"));
     const notes = r.notes ? h("div", { class: "notes-box" }, h("small", null, "Your notes"), h("p", null, r.notes)) : null;
     const edited = r.rescored_at ? h("p", { class: "hint" }, icon("refresh"), " Re-scored after your edits.") : null;
-    $("#modalBody").replaceChildren(...[manage, h("p", { class: "lead-msg" }, `“${r.message}”`), notes, edited, renderResult(r, { inModal: true }),
+    $("#modalBody").dataset.lead = r.id;
+    $("#modalBody").replaceChildren(...[manage, follow, h("p", { class: "lead-msg" }, `“${r.message}”`), notes, edited, renderResult(r, { inModal: true }),
       h("div", { class: "modal-foot" }, h("button", { class: "btn btn-text danger-text", type: "button", onclick: () => deleteLead(r) }, icon("trash"), "Delete lead"))]
       .filter(Boolean));
     const dlg = $("#leadModal");
@@ -1226,7 +1475,8 @@
     editing = r;
     const f = $("#editForm"), F = r.fields || {};
     $("#editTitle").textContent = `Edit ${leadName(r)}`;
-    const val = { name: r.name || "", status: r.status || "New", phone: r.phone || "", email: r.email || "",
+    const val = { name: r.name || "", status: r.status || "New", priority: r.priority || "Medium",
+      follow_up_at: toLocalInput(r.follow_up_at), phone: r.phone || "", email: r.email || "",
       intent: F.intent || "unknown", location: F.location || "", budget: F.budget ?? "", currency: F.currency || "INR",
       property_type: F.property_type || "", bedrooms: F.bedrooms ?? "", timeline_months: F.timeline_months ?? "",
       financing: F.financing || "unknown", notes: r.notes || "" };
@@ -1240,12 +1490,14 @@
     if (!editing) return;
     const f = $("#editForm"), el = f.elements, F = editing.fields || {};
     const num = (v) => (v === "" ? null : Number(v));
-    const next = { name: el.name.value.trim(), status: el.status.value, phone: el.phone.value.trim() || null,
+    const next = { name: el.name.value.trim(), status: el.status.value, priority: el.priority.value,
+      follow_up_at: fromLocalInput(el.follow_up_at.value), phone: el.phone.value.trim() || null,
       email: el.email.value.trim() || null, intent: el.intent.value, location: el.location.value.trim() || null,
       budget: num(el.budget.value), currency: el.currency.value, property_type: el.property_type.value || null,
       bedrooms: num(el.bedrooms.value), timeline_months: num(el.timeline_months.value), financing: el.financing.value,
       notes: el.notes.value.trim() || null };
-    const old = { name: editing.name || "", status: editing.status || "New", phone: editing.phone || null, email: editing.email || null,
+    const old = { name: editing.name || "", status: editing.status || "New", priority: editing.priority || "Medium",
+      follow_up_at: editing.follow_up_at || null, phone: editing.phone || null, email: editing.email || null,
       intent: F.intent || "unknown", location: F.location || null, budget: F.budget ?? null, currency: F.currency || "INR",
       property_type: F.property_type || null, bedrooms: F.bedrooms ?? null, timeline_months: F.timeline_months ?? null,
       financing: F.financing || "unknown", notes: editing.notes || null };
@@ -1429,6 +1681,7 @@
     document.body.classList.remove("booting");
     route();
     setInterval(() => { if (state.user) loadStatus(); }, 120000);
+    setInterval(() => { if (state.user) loadFollowUps(); }, 300000);  // keeps reminders current while the app is open
 
     $("#menuBtn").addEventListener("click", openDrawer);
     $("#closeDrawer").addEventListener("click", closeDrawer);
@@ -1494,6 +1747,13 @@
     $("#fProperty").addEventListener("change", (e) => { H.property_type = e.target.value; refilter(); });
     $("#fCurrency").addEventListener("change", (e) => { H.currency = e.target.value; refilter(); });
     $("#fDup").addEventListener("change", (e) => { H.duplicates = e.target.checked; refilter(); });
+    $("#fFollow").addEventListener("change", (e) => { H.followup = e.target.value; refilter(); });
+    $("#fPriority").addEventListener("change", (e) => { H.priority = e.target.value; refilter(); });
+    $("#compareGo").addEventListener("click", openCompare);
+    $("#compareClear").addEventListener("click", () => { state.compare.clear(); renderCompareBar(); renderHistory(); });
+    $$("#trendToggle button").forEach((b) => b.addEventListener("click", () => setTrend(b.dataset.period)));
+    $("#followupsAll").addEventListener("click", (e) => { e.preventDefault(); showFollowUps("due"); });
+    initNotifyToggle();
     let fTimer;
     for (const [id, key] of [["#fLocation", "location"], ["#fMin", "budget_min"], ["#fMax", "budget_max"]]) {
       $(id).addEventListener("input", (e) => { clearTimeout(fTimer); fTimer = setTimeout(() => { H[key] = e.target.value.trim(); refilter(); }, 300); });
@@ -1505,7 +1765,7 @@
     $("#listingImportBtn").addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("#listingFile").click(); } });
     $("#listingForm").addEventListener("submit", saveListing);
     $("#editForm").addEventListener("submit", saveEdit);
-    for (const id of ["#editModal", "#listingModal"]) {
+    for (const id of ["#editModal", "#listingModal", "#compareModal"]) {
       $$(`${id} [data-close]`).forEach((b) => b.addEventListener("click", () => $(id).close()));
       $(id).addEventListener("click", (e) => { if (e.target === e.currentTarget) $(id).close(); });
     }

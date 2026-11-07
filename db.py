@@ -112,6 +112,13 @@ MIGRATIONS = [
         "ALTER TABLE users ADD COLUMN failed_logins INTEGER NOT NULL DEFAULT 0",
         f"ALTER TABLE users ADD COLUMN locked_until {_big(pg)}",
     ]),
+    (5, "follow ups: next follow up time, priority and last contacted", lambda pg: [
+        f"ALTER TABLE leads ADD COLUMN follow_up_at {_big(pg)}",
+        f"ALTER TABLE leads ADD COLUMN last_contacted_at {_big(pg)}",
+        "ALTER TABLE leads ADD COLUMN priority TEXT",
+        "UPDATE leads SET priority = CASE tier WHEN 'Hot' THEN 'High' WHEN 'Warm' THEN 'Medium' ELSE 'Low' END",
+        "CREATE INDEX IF NOT EXISTS idx_leads_user_followup ON leads(user_id, follow_up_at)",
+    ]),
 ]
 
 

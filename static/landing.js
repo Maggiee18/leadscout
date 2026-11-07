@@ -32,6 +32,8 @@ const countEl = $("[data-count]");
 if (countEl) {
   const target = +countEl.dataset.count;
   const card = countEl.closest(".result-card");
+  // The page ships showing the real score (85) so it is right without JavaScript and for crawlers;
+  // the count up only replays it when the card scrolls into view.
   const run = () => {
     if (reduce) { countEl.textContent = target; return; }
     const t0 = performance.now();
@@ -42,7 +44,7 @@ if (countEl) {
     };
     setTimeout(() => requestAnimationFrame(step), 200);
   };
-  if ("IntersectionObserver" in window) {
+  if ("IntersectionObserver" in window && !reduce) {
     const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { run(); io.disconnect(); } }, { threshold: 0.3 });
     io.observe(card);
   } else run();

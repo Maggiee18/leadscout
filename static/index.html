@@ -61,6 +61,9 @@
     <symbol id="i-trend" viewBox="0 0 24 24"><path d="m3 17 6-6 4 4 8-8"/><path d="M14 7h7v7"/></symbol>
     <symbol id="i-crown" viewBox="0 0 24 24"><path d="m3 7 4 4 5-7 5 7 4-4-2 12H5z"/></symbol>
     <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></symbol>
+    <symbol id="i-columns" viewBox="0 0 24 24"><rect x="3" y="4" width="7" height="16" rx="1.5"/><rect x="14" y="4" width="7" height="16" rx="1.5"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M20.5 11.5a8.5 8.5 0 0 1-12.6 7.4L3 20.5l1.6-4.8A8.5 8.5 0 1 1 20.5 11.5z"/><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1-1.5-2-1-1 .8a3.6 3.6 0 0 1-1.8-1.8l.8-1-1-2z"/></symbol>
     <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
     <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
     <symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
@@ -240,7 +243,7 @@
     <a href="#/dashboard" data-nav="dashboard"><svg class="i"><use href="#i-dashboard"/></svg>Dashboard</a>
     <a href="#/analyze" data-nav="analyze"><svg class="i"><use href="#i-scan"/></svg>Single lead analysis</a>
     <a href="#/bulk" data-nav="bulk"><svg class="i"><use href="#i-upload"/></svg>Bulk lead analysis</a>
-    <a href="#/history" data-nav="history"><svg class="i"><use href="#i-users"/></svg>Leads</a>
+    <a href="#/history" data-nav="history"><svg class="i"><use href="#i-users"/></svg>Leads<span class="nav-badge" data-due-badge hidden></span></a>
     <a href="#/listings" data-nav="listings"><svg class="i"><use href="#i-building"/></svg>Listings</a>
     <a href="#/activity" data-nav="activity"><svg class="i"><use href="#i-activity"/></svg>Activity log</a>
     <a href="#/admin" data-nav="admin" data-admin-only hidden><svg class="i"><use href="#i-crown"/></svg>Admin</a>
@@ -290,9 +293,25 @@
       <div class="kpi kpi-avg"><span class="kpi-label">Average score</span><span class="kpi-value" data-kpi="avg">–</span><span class="kpi-sub">out of 100</span></div>
     </div>
 
+    <div class="card followups-card" id="followupsCard">
+      <div class="card-head">
+        <h2><svg class="i"><use href="#i-bell"/></svg>Follow ups</h2>
+        <div class="head-tools">
+          <label class="check-pill small" id="notifyWrap"><input type="checkbox" id="notifyToggle"><span>Remind me in this browser</span></label>
+          <a class="link" href="#/history" id="followupsAll">See all</a>
+        </div>
+      </div>
+      <div id="followups"></div>
+    </div>
+
     <div class="dash-grid dash-grid-wide">
       <div class="card">
-        <div class="card-head"><h2>Leads and conversions by month</h2><span class="hint">Last 6 months</span></div>
+        <div class="card-head"><h2 id="trendTitle">Leads and conversions by month</h2>
+          <div class="segmented small" role="group" aria-label="Chart period" id="trendToggle">
+            <button type="button" data-period="weekly" aria-pressed="false">Weekly</button>
+            <button type="button" data-period="monthly" aria-pressed="true">Monthly</button>
+          </div>
+        </div>
         <div id="monthly"></div>
       </div>
       <div class="card">
@@ -520,12 +539,18 @@
             <option value="score-desc">Score: high to low</option>
             <option value="score-asc">Score: low to high</option>
             <option value="updated">Recently updated</option>
+            <option value="followup">Follow up: soonest first</option>
+            <option value="priority">Priority: high first</option>
           </select>
         </div>
       </div>
       <div class="filter-row" role="group" aria-label="More filters">
         <label class="mini-field"><span>Status</span>
-          <select id="fStatus"><option value="all">All statuses</option><option>New</option><option>Contacted</option><option>Follow-up</option><option>Converted</option><option>Lost</option></select></label>
+          <select id="fStatus"><option value="all">All statuses</option><option>New</option><option>Contacted</option><option>Follow-up</option><option>Negotiating</option><option>Converted</option><option>Lost</option></select></label>
+        <label class="mini-field"><span>Follow up</span>
+          <select id="fFollow"><option value="">Any</option><option value="due">Due or overdue</option><option value="overdue">Overdue</option><option value="today">Due today</option><option value="upcoming">Later</option><option value="none">Not scheduled</option></select></label>
+        <label class="mini-field"><span>Priority</span>
+          <select id="fPriority"><option value="">Any</option><option>High</option><option>Medium</option><option>Low</option></select></label>
         <label class="mini-field"><span>Property</span>
           <select id="fProperty"><option value="">Any type</option><option>Apartment</option><option>House</option><option>Villa</option><option>Plot</option><option>Commercial</option></select></label>
         <label class="mini-field"><span>Location</span>
@@ -538,6 +563,11 @@
         <button class="btn btn-text btn-sm" id="fReset" type="button"><svg class="i"><use href="#i-refresh"/></svg>Reset filters</button>
       </div>
       <div id="historyBody" aria-live="polite" aria-busy="false"></div>
+      <div class="compare-bar" id="compareBar" hidden>
+        <span id="compareInfo"></span>
+        <button class="btn btn-text btn-sm" type="button" id="compareClear">Clear</button>
+        <button class="btn btn-primary btn-sm" type="button" id="compareGo"><svg class="i"><use href="#i-columns"/></svg><span>Compare</span></button>
+      </div>
       <div class="pager" id="historyPager" hidden>
         <p class="pager-info" id="pagerInfo"></p>
         <div class="pager-btns">
@@ -691,15 +721,15 @@
             <tr><td>Each red flag</td><td class="num neg">−10</td></tr>
           </tbody>
         </table>
-        <p class="hint">The total is kept between 0 and 100.</p>
+        <p class="hint">The total is kept between 0 and 100. A range like “3 to 6 months” counts by its later end, so urgency is never overstated. If a message gives several timelines, such as “ASAP, at the latest 6 months”, the soonest one counts.</p>
       </div>
       <div class="stack">
         <div class="card">
           <div class="card-head"><h2>Classification</h2></div>
           <ul class="tier-list">
-            <li><span class="badge hot">Hot</span><span>70 and above. Call today.</span></li>
-            <li><span class="badge warm">Warm</span><span>40 to 69. Ask the most useful missing question.</span></li>
-            <li><span class="badge cold">Cold</span><span>Below 40. Share listings, no pressure.</span></li>
+            <li><span class="badge hot">Hot</span><span>70 to 100. Call today. Priority High, follow up due today.</span></li>
+            <li><span class="badge warm">Warm</span><span>40 to 69. Ask the most useful missing question. Priority Medium, follow up in 3 days.</span></li>
+            <li><span class="badge cold">Cold</span><span>0 to 39. Share listings, no pressure. Priority Low, no follow up set.</span></li>
           </ul>
         </div>
         <div class="card">
@@ -712,7 +742,7 @@
         </div>
         <div class="card">
           <div class="card-head"><h2>Privacy</h2></div>
-          <p>Leads you analyze are saved to your account so you can find them later, and only you can see them. You can delete them any time from Lead history. Lead text is never written to server logs, and the AI key stays on the server. <a class="link" href="/privacy">Read the privacy policy</a></p>
+          <p>Leads you analyze are saved to your account so you can find them later, and only you can see them. You can delete them any time from Leads. Lead text is never written to server logs, and the AI key stays on the server. <a class="link" href="/privacy">Read the privacy policy</a></p>
         </div>
       </div>
     </div>
@@ -723,7 +753,7 @@
   <a href="#/dashboard" data-nav="dashboard"><svg class="i"><use href="#i-dashboard"/></svg><span>Dashboard</span></a>
   <a href="#/analyze" data-nav="analyze"><svg class="i"><use href="#i-scan"/></svg><span>Analyze</span></a>
   <a href="#/bulk" data-nav="bulk"><svg class="i"><use href="#i-upload"/></svg><span>Bulk</span></a>
-  <a href="#/history" data-nav="history"><svg class="i"><use href="#i-users"/></svg><span>Leads</span></a>
+  <a href="#/history" data-nav="history"><svg class="i"><use href="#i-users"/></svg><span>Leads</span><span class="nav-badge dot" data-due-badge hidden></span></a>
   <a href="#/listings" data-nav="listings"><svg class="i"><use href="#i-building"/></svg><span>Listings</span></a>
 </nav>
 
@@ -745,7 +775,9 @@
       <p class="hint">Changing the budget, location, timeline, intent or financing re-scores the lead with the same published rules.</p>
       <div class="form-grid">
         <label class="field"><span class="label">Name</span><input type="text" name="name" maxlength="80"></label>
-        <label class="field"><span class="label">Status</span><select name="status"><option>New</option><option>Contacted</option><option>Follow-up</option><option>Converted</option><option>Lost</option></select></label>
+        <label class="field"><span class="label">Status</span><select name="status"><option>New</option><option>Contacted</option><option>Follow-up</option><option>Negotiating</option><option>Converted</option><option>Lost</option></select></label>
+        <label class="field"><span class="label">Priority</span><select name="priority"><option>High</option><option>Medium</option><option>Low</option></select></label>
+        <label class="field"><span class="label">Next follow up</span><input name="follow_up_at" type="datetime-local"></label>
         <label class="field"><span class="label">Phone</span><input name="phone" type="tel" maxlength="20"></label>
         <label class="field"><span class="label">Email</span><input name="email" type="email" maxlength="120"></label>
         <label class="field"><span class="label">Intent</span><select name="intent"><option value="unknown">Unknown</option><option value="buy">Buy</option><option value="sell">Sell</option><option value="rent">Rent</option><option value="invest">Invest</option></select></label>
@@ -765,6 +797,14 @@
       <button type="submit" class="btn btn-primary" id="editSave"><svg class="i"><use href="#i-check"/></svg><span>Save changes</span></button>
     </div>
   </form>
+</dialog>
+
+<dialog class="modal compare-modal" id="compareModal" aria-labelledby="compareTitle">
+  <div class="modal-head">
+    <h2 id="compareTitle">Compare leads</h2>
+    <button type="button" class="icon-btn" data-close aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button>
+  </div>
+  <div class="modal-body" id="compareBody"></div>
 </dialog>
 
 <dialog class="modal form-modal" id="listingModal" aria-labelledby="listingTitle">

@@ -3,6 +3,7 @@
     The AI reads. The rules score. The agent decides.
 """
 
+import csv
 import io
 import logging
 import re
@@ -215,13 +216,30 @@ def _table_from_upload(data: bytes, filename: str):
     if "\x00" in text:
         raise HTTPException(400, "This doesn't look like a CSV file.")
     try:
-        df = pd.read_csv(io.StringIO(text), dtype=str, keep_default_na=False, sep=_delimiter(text),
-                         engine="c", index_col=False, skipinitialspace=True, on_bad_lines="skip",
-                         skip_blank_lines=True)
-    except Exception:
+        records = [r for r in csv.reader(io.StringIO(text), delimiter=_delimiter(text), skipinitialspace=True)
+                   if any(c.strip() for c in r)]
+    except csv.Error:
         raise HTTPException(400, "The CSV couldn't be parsed. Check commas and quotes.") from None
-    lines = sum(1 for ln in text.splitlines() if ln.strip()) - 1  # rough: rows with broken quoting or extra cells
-    return df, max(0, lines - len(df))
+    if not records:
+        raise HTTPException(400, "The file is empty.")
+    header, seen = [], {}
+    for i, cell in enumerate(records[0]):
+        h = cell.strip() or f"column {i + 1}"
+        seen[h] = seen.get(h, -1) + 1
+        header.append(h if not seen[h] else f"{h}.{seen[h]}")  # same name twice: keep both, like pandas
+    width = len(header)
+    # Messages often contain commas without quotes ("villa in Goa, cash"). When the message is the last
+    # column, extra cells are joined back into it instead of the row being dropped.
+    last_is_message = bool(header) and _find_column([header[-1].lower()], "message") is not None
+    rows, bad = [], 0
+    for r in records[1:]:
+        if len(r) > width:
+            if not last_is_message:
+                bad += 1
+                continue
+            r = r[:width - 1] + [", ".join(c.strip() for c in r[width - 1:])]
+        rows.append([c.strip() for c in r] + [""] * (width - len(r)))
+    return pd.DataFrame(rows, columns=header, dtype=str), bad
 
 
 def _delimiter(text):

@@ -20,9 +20,12 @@ Agents get a steady stream of inquiries from buyers, sellers, renters and invest
 - **Single lead analysis**: score ring, Hot/Warm/Cold badge, extracted facts ("Not provided" when missing, never guessed), a point by point breakdown, a recommended next action and a copyable SMS draft.
 - **Customer details**: name, phone, email, property type and bedrooms are read from the message (phone numbers and emails by fixed patterns, so a phone number can never be mistaken for a budget). A confidence percentage shows how much of the score rests on facts the customer actually stated, plus their interest level and tone.
 - **Bulk upload**: CSV or Excel (.xlsx), commas, semicolons or tabs, flexible column names (`message`, `inquiry`, `enquiry`, `comments`; optional `name`, `phone`, `email`), up to 50 leads. Repeat inquiries (same phone, email or message) are flagged as possible duplicates.
-- **Lead pipeline**: statuses New, Contacted, Follow-up, Converted and Lost; search by name, phone or email; filter by tier, status, property type, location and budget range; edit any detail (changing a scoring fact re-scores the lead with the same rules); notes; delete one or all; server-built CSV export.
+- **Lead pipeline**: statuses New, Contacted, Follow-up, Negotiating, Converted and Lost; search by name, phone or email; filter by tier, status, priority, follow up, property type, location and budget range; edit any detail (changing a scoring fact re-scores the lead with the same rules); notes; delete one or all; server-built CSV export.
+- **Follow ups**: every lead has a priority (High, Medium, Low) and a next follow up time. New Hot leads start High and due today, Warm leads Medium and due in three days, Cold leads Low with none set. The dashboard lists overdue, due today and the next seven days, the Leads tab shows a badge with the number due, and an optional browser notification fires when one comes due. "Log contact" records when you last spoke to a lead, and moving a lead to Contacted, Follow-up, Negotiating or Converted does the same.
+- **Compare leads**: tick two to four leads and see them side by side, with the strongest value in each row highlighted.
+- **WhatsApp**: open a chat with the drafted reply filled in (wa.me click to chat; nothing is sent until you press send). Numbers starting with + or 00 are used as given; a 10 digit number gets +91 for rupee budgets and +1 for dollar budgets, otherwise LeadScout asks for the country code instead of guessing.
 - **Listings and matching**: add properties by hand or import a CSV or Excel file. Every lead gets up to three suggested properties that fit its deal type, location, budget (up to 10% over), type and bedrooms, each with the reasons it matched. Replies mention matching listings only when they exist.
-- **Dashboard**: total leads, Hot/Warm/Cold counts, conversion rate, average score, a monthly chart of leads and conversions, the pipeline by status and recent leads, all calculated on the server.
+- **Dashboard**: total leads, Hot/Warm/Cold counts, conversion rate, average score, a weekly or monthly chart of leads and conversions, the pipeline by status and recent leads, all calculated on the server.
 - **Activity log and admin**: sign-ins, uploads, edits, status changes, exports and deletions are recorded (never lead messages or contact details). Admins, set with `ADMIN_EMAILS`, see all accounts and everyone's activity, but not other users' leads.
 - **Accounts**: registration, login, "keep me logged in", forgot/reset password by email, change name, change password (signs out other devices), delete account with all data.
 - **Privacy policy and terms** pages, linked from signup.
@@ -75,7 +78,9 @@ The model returns JSON with `intent`, `timeline_months`, `budget`, `currency`, `
 | Motivation given | +10 |
 | Each red flag | −10 |
 
-The total is kept between 0 and 100. **Hot** is 70+, **Warm** 40–69, **Cold** below 40. The same facts always give the same score.
+The total is kept between 0 and 100. **Hot** is 70 to 100, **Warm** 40 to 69, **Cold** 0 to 39 (exactly 70 is Hot, exactly 40 is Warm; tests pin both edges). The same facts always give the same score.
+
+Timelines follow two fixed rules, for both the AI and the offline rules: a range ("3 to 6 months") counts by its later end, so urgency is never overstated, and when a message gives several timelines ("ASAP, at the latest 6 months") the soonest one counts.
 
 ### Groq free tier limits
 
@@ -110,8 +115,11 @@ All errors are JSON: `{"detail": "readable message"}`, plus `"field"` for form e
 | POST | `/api/score` | ✓ | `name?`, `message`, `use_ai?` → scored lead, saved |
 | POST | `/api/batch` | ✓ | multipart `file` (CSV, `message` + optional `name`, ≤50 rows, ≤512 KB) |
 | POST | `/api/batch/sample` | ✓ | Scores `sample_leads.csv` |
-| GET | `/api/leads` | ✓ | `q`, `tier`, `sort` (`newest`, `oldest`, `score-desc`, `score-asc`), `limit`, `offset` |
-| GET | `/api/leads/stats` | ✓ | Dashboard numbers and the 6 most recent leads |
+| GET | `/api/leads` | ✓ | `q`, `tier`, `status`, `priority`, `followup` (`due`, `overdue`, `today`, `upcoming`, `scheduled`, `none`) with `tz`, `property_type`, `location`, `budget_min`, `budget_max`, `currency`, `duplicates`, `sort` (`newest`, `oldest`, `score-desc`, `score-asc`, `updated`, `followup`, `priority`), `limit`, `offset` |
+| GET | `/api/leads/stats` | ✓ | Dashboard numbers, pipeline, 8 weeks and 6 months of trends, the 6 most recent leads |
+| GET | `/api/leads/followups` | ✓ | `tz` (the browser's `getTimezoneOffset()`) → overdue, today and next 7 days |
+| PATCH | `/api/leads/{id}` | ✓ | Any detail, `status`, `priority`, `follow_up_at` (Unix seconds or `null`), `notes`, `contacted: true` |
+| GET | `/api/leads/export.csv` | ✓ | Same filters as `/api/leads` |
 | GET | `/api/leads/{id}` | ✓ | One saved lead |
 | DELETE | `/api/leads/{id}` | ✓ | Delete one |
 | DELETE | `/api/leads` | ✓ | Delete all |
@@ -222,5 +230,7 @@ GitHub Actions (`.github/workflows/ci.yml`) runs lint, tests on Python 3.10 and 
 
 - Background batch jobs with a progress bar, so large CSVs wait out the AI rate limit instead of falling back
 - Email verification and changing the account email
-- CRM integrations (HubSpot, Zoho) and sending SMS through Twilio after the agent approves
+- CRM integrations (HubSpot, Zoho). Today the CSV export, which includes status, priority and follow up dates, is the way to move leads into a CRM
+- Sending WhatsApp or SMS from LeadScout itself (WhatsApp Business API or Twilio) after the agent approves, instead of click to chat
+- Follow up reminders by email, so they arrive when the app is closed
 - Configurable scoring weights per agency, and shared team workspaces

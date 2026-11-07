@@ -30,6 +30,7 @@ Leads (signed in)
     PATCH  /api/leads/{id}         edit details or status (re-scores when scoring facts change)
     GET    /api/leads/export.csv   download leads as CSV (spreadsheet formulas neutralised)
     GET    /api/leads/locations    locations seen, for the filter
+    GET    /api/leads/followups    overdue, due today and upcoming follow ups
 
 Listings (signed in)
     GET/POST /api/listings         list / add a property listing
@@ -70,7 +71,7 @@ import mailer
 from activity import ActivityLog
 from auth import RESET_MINUTES, Accounts, AuthError
 from db import Database
-from leads import EDITABLE, STATUSES, LeadStore
+from leads import EDITABLE, FOLLOW_UP_FILTERS, PRIORITIES, STATUSES, LeadStore
 from listings import ListingStore, clean_listing, read_listings_csv
 
 STATIC_DIR = config.BASE_DIR / "static"
@@ -78,7 +79,7 @@ SAMPLE_CSV = config.BASE_DIR / "sample_leads.csv"
 SAMPLE_LISTINGS = config.BASE_DIR / "sample_listings.csv"
 MAX_UPLOAD_BYTES = 512 * 1024
 SESSION_COOKIE = "ls_session"
-VERSION = "4.0.0"
+VERSION = "5.0.0"
 
 # ---------- Logging (JSON in production, never any lead content) ----------
 
@@ -606,8 +607,12 @@ def _num_param(value, name):
     return n
 
 
-def _filters(q, tier, status, location, budget_min, budget_max, currency, duplicates, property_type):
+def _filters(q, tier, status, location, budget_min, budget_max, currency, duplicates, property_type,
+             priority="", followup="", tz=0):
+    if followup and followup not in FOLLOW_UP_FILTERS:
+        raise HTTPException(422, "Unknown follow up filter.")
     return {"q": q, "tier": tier, "status": status, "location": location,
+            "priority": priority, "followup": followup, "tz": max(-840, min(840, int(tz))),
             "budget_min": _num_param(budget_min, "Minimum budget"),
             "budget_max": _num_param(budget_max, "Maximum budget"),
             "currency": currency, "duplicates": duplicates, "property_type": property_type}
@@ -616,15 +621,22 @@ def _filters(q, tier, status, location, budget_min, budget_max, currency, duplic
 @app.get("/api/leads")
 def list_leads(q: str = "", tier: str = "all", status: str = "all", location: str = "", budget_min: str = "",
                budget_max: str = "", currency: str = "", duplicates: bool = False, property_type: str = "",
+               priority: str = "", followup: str = "", tz: int = 0,
                sort: str = "newest", limit: int = 20, offset: int = 0, user: dict = Depends(current_user)):
     return lead_store.list(user["id"], sort=sort, limit=limit, offset=offset,
                            **_filters(q, tier, status, location, budget_min, budget_max, currency, duplicates,
-                                      property_type))
+                                      property_type, priority, followup, tz))
 
 
 @app.get("/api/leads/stats")
 def lead_stats(user: dict = Depends(current_user)):
     return lead_store.stats(user["id"])
+
+
+@app.get("/api/leads/followups")
+def lead_follow_ups(tz: int = 0, user: dict = Depends(current_user)):
+    """Reminders: open leads whose follow up is overdue, due today, or in the next seven days."""
+    return lead_store.follow_ups(user["id"], tz=max(-840, min(840, tz)))
 
 
 @app.get("/api/leads/locations")
@@ -643,22 +655,29 @@ def _csv_cell(value):
 @app.get("/api/leads/export.csv")
 def export_leads(request: Request, q: str = "", tier: str = "all", status: str = "all", location: str = "",
                  budget_min: str = "", budget_max: str = "", currency: str = "", duplicates: bool = False,
-                 property_type: str = "", user: dict = Depends(current_user)):
+                 property_type: str = "", priority: str = "", followup: str = "", tz: int = 0,
+                 user: dict = Depends(current_user)):
     rate_limit(request, "export", 10)
-    filters = _filters(q, tier, status, location, budget_min, budget_max, currency, duplicates, property_type)
-    head = ["Name", "Phone", "Email", "Score", "Tier", "Status", "Intent", "Property", "Budget", "Location",
-            "Timeline", "Financing", "Sentiment", "Confidence %", "Next action", "Message", "Saved (UTC)"]
+    filters = _filters(q, tier, status, location, budget_min, budget_max, currency, duplicates, property_type,
+                       priority, followup, tz)
+    head = ["Name", "Phone", "Email", "Score", "Tier", "Status", "Priority", "Next follow up (UTC)",
+            "Last contacted (UTC)", "Intent", "Property", "Budget", "Location", "Timeline", "Financing",
+            "Sentiment", "Confidence %", "Next action", "Notes", "Message", "Saved (UTC)"]
+
+    def when(ts):
+        return datetime.fromtimestamp(ts, timezone.utc).strftime("%Y-%m-%d %H:%M") if ts else ""
+
     lines, offset = [",".join(head)], 0
     while True:
         page = lead_store.list(user["id"], sort="score-desc", limit=100, offset=offset, **filters)
         for r in page["items"]:
             d = r["display"]
-            saved = datetime.fromtimestamp(r["saved_at"], timezone.utc).strftime("%Y-%m-%d %H:%M")
             lines.append(",".join(_csv_cell(v) for v in (
                 r.get("name"), r.get("phone"), r.get("email"), r["score"], r["tier"], r.get("status"),
+                r.get("priority"), when(r.get("follow_up_at")), when(r.get("last_contacted_at")),
                 d.get("intent"), d.get("property"), d.get("budget"), d.get("location"), d.get("timeline"),
                 d.get("financing"), d.get("sentiment"), r.get("confidence"), r.get("next_action"),
-                r["message"], saved)))
+                r.get("notes"), r["message"], when(r["saved_at"]))))
         offset += 100
         if offset >= page["total"] or offset >= 5000:
             break
@@ -689,6 +708,16 @@ class LeadEditIn(BaseModel):
     financing: str | None = None
     notes: str | None = Field(default=None, max_length=1000)
     status: str | None = None
+    follow_up_at: int | None = Field(default=None, ge=946684800, le=4102444800)  # 2000 to 2100, Unix seconds
+    priority: str | None = None
+    contacted: bool | None = None  # true logs a contact now (call, WhatsApp, email)
+
+    @field_validator("priority")
+    @classmethod
+    def check_priority(cls, v):
+        if v is not None and v not in PRIORITIES:
+            raise ValueError(f"Priority must be one of: {', '.join(PRIORITIES)}.")
+        return v
 
     @field_validator("status")
     @classmethod
@@ -727,7 +756,14 @@ def edit_lead(lead_id: str, body: LeadEditIn, request: Request, user: dict = Dep
     if "status" in changes and changes["status"] != before.get("status"):
         activity.add(user["id"], "lead_status", f"{ref}: {before.get('status')} to {changes['status']}",
                      client_ip(request))
-    edited = sorted(k for k in changes if k != "status")
+    if "follow_up_at" in changes:
+        when = changes["follow_up_at"]
+        activity.add(user["id"], "lead_follow_up", f"{ref}: " + (
+            datetime.fromtimestamp(when, timezone.utc).strftime("%Y-%m-%d %H:%M UTC") if when else "cleared"),
+            client_ip(request))
+    if changes.get("contacted"):
+        activity.add(user["id"], "lead_contacted", ref, client_ip(request))
+    edited = sorted(k for k in changes if k not in ("status", "follow_up_at", "contacted"))
     if edited:
         note = f"{ref}: {', '.join(edited)}"
         if lead["score"] != before["score"]:

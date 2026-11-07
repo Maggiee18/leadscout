@@ -43,7 +43,7 @@ extract facts. Only use what the message says; never guess or invent.
 Return ONLY a JSON object, no markdown, with exactly these keys:
 {
   "intent": "buy" | "sell" | "rent" | "invest" | "unknown",
-  "timeline_months": number or null (0 if they say now / ASAP, 0.5 for two weeks),
+  "timeline_months": number or null (0 if they say now / ASAP, 0.5 for two weeks; for a range like "3 to 6 months" use the later end; if they give several timelines use the soonest),
   "budget": number or null (the full amount: 450k -> 450000, 80 lakhs -> 8000000, 1.2 crore -> 12000000; for rentals the monthly rent),
   "currency": "USD" | "INR" | null ("INR" for rupees, lakhs, crores or Rs; "USD" for $ or dollars; null if no budget),
   "location": string or null (city or area exactly as written),
@@ -264,7 +264,8 @@ def extract_with_llm(message, client, model):
             **_model_kwargs(model),
             messages=[
                 {"role": "system", "content": EXTRACT_PROMPT},
-                {"role": "user", "content": message},
+                # Phone numbers and emails never leave LeadScout: rules read them from the original text
+                {"role": "user", "content": strip_contacts(message)},
             ],
         )
         try:
@@ -323,29 +324,25 @@ def _money(text):
 
 
 def _timeline(text):
+    """Months until they want to move. Rules, so the same words always give the same number:
+    a range ("3 to 6 months") counts by its later end, so urgency is never overstated;
+    when several timelines are mentioned ("ASAP, at the latest 6 months") the soonest one counts."""
     t = text.lower()
+    found = []
     if re.search(r"\b(asap|right away|immediately|this week|urgent(ly)?|right now)\b", t):
-        return 0
-    if re.search(r"\b(next|this|within a|in a|within one) month\b", t) and not re.search(
-            r"next \w+ months", t):
-        return 1
-    m = re.search(r"(\d+(?:\.\d+)?)\s*(?:-|to)?\s*\d*\s*(months?|weeks?|years?)\b", t)
-    if not m:
-        words = "|".join(sorted(map(re.escape, WORD_NUMBERS), key=len, reverse=True))
-        w = re.search(rf"\b({words})\s+(months?|weeks?|years?)\b", t)
-        if w:
-            m = w
-    if m:
-        raw, unit = m.group(1), m.group(2)
-        n = float(WORD_NUMBERS.get(raw, raw) if raw in WORD_NUMBERS else raw)
-        if unit.startswith("week"):
-            return round(n / 4, 2)
-        if unit.startswith("year"):
-            return n * 12
-        return n
-    if "next year" in t:
-        return 12
-    return None
+        found.append(0)
+    if re.search(r"\b(next|this|within a|in a|within one) month\b", t):
+        found.append(1)
+    if re.search(r"\b(next|within a|in a|within one) year\b", t):
+        found.append(12)
+    words = "|".join(sorted(map(re.escape, WORD_NUMBERS), key=len, reverse=True))
+    num = rf"(?:\d+(?:\.\d+)?|\b(?:{words}))"
+    for m in re.finditer(rf"({num})(?:\s*(?:-|to|or)\s*({num}))?\s*(months?|weeks?|years?)\b", t):
+        raw = m.group(2) or m.group(1)
+        n = float(WORD_NUMBERS[raw]) if raw in WORD_NUMBERS else float(raw)
+        unit = m.group(3)
+        found.append(round(n / 4, 2) if unit.startswith("week") else n * 12 if unit.startswith("year") else n)
+    return min(found) if found else None
 
 
 MOTIVATIONS = [
@@ -438,6 +435,13 @@ def format_timeline(months):
 
 # ---------- Scoring: deterministic, explainable ----------
 
+HOT_MIN, WARM_MIN = 70, 40  # Hot is 70 to 100, Warm 40 to 69, Cold 0 to 39
+
+
+def tier_for(score):
+    return "Hot" if score >= HOT_MIN else "Warm" if score >= WARM_MIN else "Cold"
+
+
 def score_lead(f):
     points = []  # (factor, reason, points)
 
@@ -480,8 +484,7 @@ def score_lead(f):
 
     raw_total = sum(p for _, _, p in points)
     score = max(0, min(100, raw_total))
-    tier = "Hot" if score >= 70 else "Warm" if score >= 40 else "Cold"
-    return score, tier, points
+    return score, tier_for(score), points
 
 
 # ---------- Confidence and interest (shown next to the score, never part of it) ----------

@@ -1059,3 +1059,107 @@ input[type=number]:focus, input[type=tel]:focus, input[type=url]:focus { outline
 @media (max-width: 479px) { #kpis .kpi-avg { grid-column: auto; } }
 .lead-card .card-actions { align-items: center; }
 .lead-card .ls-badge { margin-right: auto; }
+
+/* =========================================================
+   Version 5: follow ups, priority, compare, WhatsApp, trends
+   ========================================================= */
+.st-negotiating { --st: #8B5CF6; --st-soft: #F3EEFE; --st-ink: #6D28D9; }
+
+/* nav badge for due follow ups */
+.nav a { position: relative; }
+.nav-badge { margin-left: auto; min-width: 22px; height: 22px; padding: 0 7px; border-radius: 99px; background: var(--hot); color: #fff;
+  font-size: 11px; font-weight: 800; display: inline-grid; place-items: center; line-height: 1; }
+.bottom-nav a { position: relative; }
+.nav-badge.dot { position: absolute; top: 4px; left: calc(50% + 6px); margin: 0; min-width: 18px; height: 18px; padding: 0 5px; font-size: 10px; }
+
+/* follow up chip and priority tag */
+.fu-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: var(--r-pill); font-size: var(--fs-xs);
+  font-weight: 700; white-space: nowrap; background: var(--bg); color: var(--text-2); border: 1px solid var(--border); }
+.fu-chip .i { width: 12px; height: 12px; }
+.fu-chip.overdue { background: var(--hot-soft); color: var(--hot-ink); border-color: transparent; }
+.fu-chip.today { background: var(--warm-soft); color: var(--warm-ink); border-color: transparent; }
+.fu-chip.later { background: #E6F6FD; color: #0369A1; border-color: transparent; }
+.fu-chip.none { color: var(--text-3); font-weight: 600; }
+.fu-chip.done { text-decoration: line-through; }
+.prio { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: var(--r-pill); font-size: 11px; font-weight: 800; vertical-align: middle; }
+.prio::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.prio-high { background: var(--hot-soft); color: var(--hot-ink); }
+.prio-medium { background: var(--warm-soft); color: var(--warm-ink); }
+.prio-low { background: var(--cold-soft); color: var(--cold-ink); }
+.lead-card-top .prio { margin-left: 6px; }
+.fu-cell { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.saved-line { display: block; margin-top: 8px; font-size: var(--fs-xs); }
+
+/* follow ups card */
+.followups-card { margin-bottom: var(--sp-4); }
+.followups-card .card-head h2 { display: inline-flex; align-items: center; gap: 8px; }
+.head-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.check-pill.small { min-height: 34px; font-size: var(--fs-xs); }
+.fu-grid { display: grid; gap: 12px; grid-template-columns: 1fr; }
+@media (min-width: 760px) { .fu-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.fu-col { border: 1px solid var(--border); border-radius: var(--r-md); padding: 12px; background: var(--white); border-top: 3px solid var(--fu-c, var(--border)); }
+.fu-col.is-overdue { --fu-c: var(--hot); } .fu-col.is-today { --fu-c: var(--warm); } .fu-col.is-later { --fu-c: #0EA5E9; }
+.fu-col-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: var(--fs-sm); }
+.fu-count { min-width: 26px; height: 26px; border-radius: 99px; display: grid; place-items: center; background: var(--bg); font-weight: 800; font-size: var(--fs-xs); }
+.fu-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.fu-list li { display: flex; align-items: center; gap: 4px; }
+.fu-item { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 6px; min-height: 44px; border: 0; background: none;
+  border-radius: var(--r-sm); text-align: left; cursor: pointer; font: inherit; color: inherit; }
+.fu-item:hover { background: var(--orange-soft); }
+.fu-item .who { min-width: 0; display: flex; flex-direction: column; }
+.fu-item strong, .fu-item small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fu-item small { color: var(--text-2); font-size: var(--fs-xs); }
+.avatar.sm { width: 30px; height: 30px; font-size: 11px; flex: none; }
+.icon-btn.sm { width: 36px; height: 36px; min-width: 36px; }
+.empty.compact { padding: var(--sp-4) var(--sp-3); }
+.empty.compact p { max-width: 52ch; }
+
+/* lead modal follow up bar */
+.follow-bar { display: grid; gap: 10px; padding: 12px 14px; margin-bottom: var(--sp-4); background: var(--white); border: 1px solid var(--border); border-radius: var(--r-md); }
+.fb-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.fb-label { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: var(--fs-sm); }
+.fb-label .i { color: var(--orange-deep); }
+.fu-input { width: auto; min-height: 36px; padding: 4px 10px; font-size: var(--fs-sm); }
+.chip.sm { min-height: 36px; padding: 0 12px; font-size: var(--fs-xs); }
+.fb-last { display: inline-flex; align-items: center; gap: 5px; color: var(--text-2); font-size: var(--fs-xs); margin-left: auto; }
+.fb-last .i { width: 13px; height: 13px; }
+.prio-select { min-height: 34px; padding: 4px 26px 4px 10px; font-size: var(--fs-xs); font-weight: 700; width: auto; border-radius: var(--r-pill); }
+
+/* WhatsApp */
+.btn-wa { background: #128C4B; color: #fff; border-color: #128C4B; }
+.btn-wa:hover { background: #0E7340; border-color: #0E7340; color: #fff; }
+.btn.is-disabled { opacity: .55; cursor: not-allowed; }
+.contact-chip.wa { color: #0E7340; }
+
+/* compare */
+.cmp-col { width: 36px; padding-right: 0 !important; }
+.cmp-check { width: 18px; height: 18px; accent-color: var(--orange-btn); cursor: pointer; margin: 0; }
+.lead-card-top { grid-template-columns: auto auto minmax(0, 1fr) auto; }
+.history-table tr.selected td { background: var(--orange-soft); }
+.compare-bar { position: sticky; bottom: calc(var(--bottomnav-h, 0px) + 12px); z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+  margin: 12px var(--sp-4); padding: 10px 12px 10px 16px; background: var(--text); color: #fff; border-radius: var(--r-md); box-shadow: var(--shadow-lg); font-size: var(--fs-sm); font-weight: 600; }
+.compare-bar #compareInfo { flex: 1 1 160px; }
+.compare-bar .btn-text { color: #fff; }
+.compare-bar .btn-primary:disabled { opacity: .5; }
+.compare-modal { width: min(1040px, calc(100vw - 24px)); }
+.cmp-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--white); }
+.compare-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); min-width: 520px; }
+.compare-table th, .compare-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+.compare-table tbody th { position: sticky; left: 0; background: var(--white); color: var(--text-2); font-weight: 700; font-size: var(--fs-xs); white-space: nowrap; z-index: 1; }
+.compare-table thead th { background: var(--bg); }
+.compare-table td.best { background: #E8F7EE; box-shadow: inset 3px 0 0 var(--success); }
+.cmp-head { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.cmp-score { display: inline-flex; align-items: center; gap: 8px; }
+.cmp-score b { font-size: var(--fs-lg); }
+.compare-sum { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; margin-bottom: var(--sp-4); background: var(--white); border: 1px solid var(--border); border-radius: var(--r-md); font-size: var(--fs-sm); }
+.compare-sum .i { color: var(--orange-deep); flex: none; margin-top: 2px; }
+
+/* trend toggle */
+.segmented.small { flex: none; }
+.segmented.small button { min-height: 32px; font-size: var(--fs-xs); padding: 0 10px; }
+.legal-table { width: 100%; border-collapse: collapse; margin: 8px 0 4px; font-size: var(--fs-sm); background: var(--white); border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; }
+.legal-table th, .legal-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+.legal-table thead th { background: var(--bg); font-weight: 800; }
+.followups-card .card-head { flex-wrap: wrap; row-gap: 8px; }
+.followups-card .card-head h2 { white-space: nowrap; }
+.lead-card .meta .fu-chip { width: fit-content; }

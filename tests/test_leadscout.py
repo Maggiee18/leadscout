@@ -27,12 +27,14 @@ import config  # noqa: E402
 import mailer  # noqa: E402
 import main  # noqa: E402
 from auth import hash_password, verify_password  # noqa: E402
+from db import MIGRATIONS  # noqa: E402
 from scorer import clean_fields, extract_with_rules, parse_json, score_lead  # noqa: E402
 
 if main.db.is_pg:  # start clean
     for table in ("activity_log", "listings", "leads", "password_resets", "sessions", "users"):
         main.db.execute(f"DELETE FROM {table}")
 
+LATEST = MIGRATIONS[-1][0]
 PASSWORD = "Sunrise2026"
 client = TestClient(main.app)  # signed in, used by the scoring tests
 assert client.post("/api/auth/register", json={"name": "Test Agent", "email": "agent@example.com",
@@ -539,7 +541,7 @@ def test_delete_account_removes_everything():
 # ---------- infrastructure ----------
 
 def test_migrations_are_idempotent():
-    assert main.db.migrate() == 4 and main.db.migrate() == 4
+    assert main.db.migrate() == LATEST and main.db.migrate() == LATEST
 
 
 def test_health_ready_and_pages():
@@ -592,7 +594,7 @@ def test_upgrade_from_previous_release_keeps_accounts(tmp_path):
     con.commit()
     con.close()
     db = Database(path=path)
-    assert db.migrate() == 4
+    assert db.migrate() == LATEST
     from auth import Accounts
     assert Accounts(db).authenticate("old@example.com", PASSWORD)["name"] == "Old User"
     assert db.fetchone("SELECT COUNT(*) FROM leads")[0] == 0

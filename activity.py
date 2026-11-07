@@ -14,6 +14,7 @@ ACTIONS = {
     "lead_status": "Lead status changed", "lead_deleted": "Lead deleted", "leads_cleared": "All leads deleted",
     "leads_exported": "Leads exported", "listing_added": "Listing added", "listing_updated": "Listing edited",
     "listing_deleted": "Listing deleted", "listings_imported": "Listings imported",
+    "lead_follow_up": "Follow up scheduled", "lead_contacted": "Contact logged",
 }
 
 

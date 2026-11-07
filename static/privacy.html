@@ -30,7 +30,10 @@
     <ul>
       <li><strong>Your account:</strong> your name, your email address and a scrambled version of your password (an scrypt hash). We can't read your actual password.</li>
       <li><strong>Your sessions:</strong> a record that you're logged in, so you stay signed in. We store a fingerprint of the session, not the session itself.</li>
-      <li><strong>Your lead history:</strong> each inquiry you analyze, the details extracted from it, its score, the recommended next step and the drafted reply. This is what powers your dashboard and History page.</li>
+      <li><strong>Your leads:</strong> each inquiry you analyze or upload, the details extracted from it (including the customer's name, phone number and email when the message contains them), its score, the recommended next step, the drafted reply, and what you add yourself: status, priority, next follow up time, when you last contacted them, and notes. This is what powers your dashboard and Leads page.</li>
+      <li><strong>Your listings:</strong> the properties you add (title, location, price, type, bedrooms, status and an optional link), used only to suggest matches for your own leads.</li>
+      <li><strong>Your activity log:</strong> a record of actions on your account, such as signing in, wrong passwords, uploads, edits, status changes, exports and deletions, with the time and the IP address they came from. It records what happened, never the text of a lead message.</li>
+      <li><strong>Login protection:</strong> a count of recent wrong passwords and, after five in a row, the time your account is paused until (15 minutes).</li>
       <li><strong>Password reset requests:</strong> a fingerprint of each reset link and when it expires (30 minutes).</li>
     </ul>
     <p>We don't store payment details, and we don't use analytics, advertising or tracking tools.</p>
@@ -38,24 +41,56 @@
     <h2>Lead messages contain other people's details</h2>
     <p>The inquiries you paste or upload usually include names, budgets, locations and plans of your clients. Please only analyze messages you're allowed to process for your work, and leave out anything that isn't needed, such as ID numbers, bank details or health information.</p>
 
+    <h2>Who can see your data</h2>
+    <ul>
+      <li><strong>You:</strong> every lead, listing and activity record is tied to your account, and every request is checked against it. Other users can't see, change or delete your data, even if they guess a link.</li>
+      <li><strong>Admins of this deployment:</strong> the operator can make chosen accounts admins. Admins see a list of accounts (name, email, role, number of saved leads, whether the account is paused) and the activity log of all accounts. Admins can't open your leads, read lead messages or see your listings through the app.</li>
+      <li><strong>The hosting and database providers</strong> the operator uses store the data on the operator's behalf.</li>
+      <li><strong>The AI provider,</strong> only when AI extraction is on, as described next.</li>
+    </ul>
+    <p>We don't sell your data or share it with anyone else.</p>
+
     <h2>How the AI part works</h2>
     <p>When AI extraction is switched on, the text of each inquiry is sent to Groq, an AI provider, which runs an open AI model (GPT-OSS 120B by default) to pull out the facts and draft a reply. Groq processes the text under its own terms and privacy policy. The score itself is always calculated by LeadScout's own rules, not by the AI. If you'd rather nothing leaves LeadScout, turn off "Use AI extraction" and offline rules are used instead.</p>
+    <p>What is sent: the inquiry text, with phone numbers and email addresses taken out before it leaves LeadScout. To draft the reply, the AI also gets the extracted facts and the first name, never the phone number or email. The AI key stays on the server and is never sent to your browser.</p>
+    <p>What Groq keeps: according to <a href="https://console.groq.com/docs/your-data">Groq's data documentation</a>, Groq doesn't keep inference requests by default, but may log inputs and outputs for up to 30 days to fix errors or investigate abuse, unless the account owner turns on Zero Data Retention. Groq's own terms govern that processing, so the operator should check them and switch on Zero Data Retention if they need it.</p>
 
     <h2>Cookies</h2>
-    <p>LeadScout sets one cookie, <code>ls_session</code>, which keeps you logged in. It can't be read by scripts on the page and is only sent to LeadScout. It lasts 7 days, or 30 days if you choose "Keep me logged in". There are no third party or tracking cookies. The page loads the Manrope font from Google Fonts, so Google can see that a page requested the font.</p>
+    <p>LeadScout sets one cookie, <code>ls_session</code>, which keeps you logged in. It can't be read by scripts on the page and is only sent to LeadScout. It lasts 7 days, or 30 days if you choose "Keep me logged in". There are no third party or tracking cookies. Your browser also remembers a few display choices in local storage, such as the weekly or monthly chart and whether you turned on reminders. Those never leave your device.</p>
+    <p>If you turn on "Remind me in this browser", your browser shows a notification when a follow up is due. It contains only the lead's name, tier, priority and next step, never the message or contact details, but it can appear on your screen where others can see it. The page loads the Manrope font from Google Fonts, so Google can see that a page requested the font.</p>
 
     <h2>How long we keep data</h2>
-    <p>Your account and lead history stay until you delete them. You can delete a single lead, clear your whole history, or delete your account from Settings. Deleting your account removes your profile, sessions, reset links and every saved lead right away. Expired sessions and reset links are cleaned up automatically.</p>
+    <table class="legal-table">
+      <thead><tr><th scope="col">Data</th><th scope="col">Kept for</th></tr></thead>
+      <tbody>
+        <tr><td>Account, leads, notes and listings</td><td>Until you delete them or delete your account</td></tr>
+        <tr><td>Activity log</td><td>180 days, then deleted automatically</td></tr>
+        <tr><td>Sessions</td><td>7 or 30 days, or until you log out or change your password</td></tr>
+        <tr><td>Password reset links</td><td>30 minutes, and they work only once</td></tr>
+        <tr><td>Account pause after wrong passwords</td><td>15 minutes</td></tr>
+        <tr><td>Text sent to Groq</td><td>Not kept by default; up to 30 days in Groq's error and abuse logs (see above)</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Deleting data</h2>
+    <ul>
+      <li><strong>One lead:</strong> delete it from the Leads page or the lead's details. It is removed from the database right away.</li>
+      <li><strong>All leads:</strong> "Clear all" on the Leads page removes every saved lead. Your account and listings stay.</li>
+      <li><strong>Listings:</strong> delete any listing from the Listings page.</li>
+      <li><strong>Your account:</strong> Settings, then "Delete account", after confirming your password. This removes your profile, sessions, reset links, leads, listings and activity log right away. It can't be undone.</li>
+    </ul>
+    <p>Database backups kept by the hosting provider may hold deleted data until they expire on the provider's own schedule.</p>
 
     <h2>Your choices</h2>
     <ul>
-      <li>See all your saved leads on the History page, and download them as CSV.</li>
+      <li>See all your saved leads on the Leads page, and download them as CSV.</li>
+      <li>See what happened on your account in the Activity log.</li>
       <li>Change your name or password in Settings. Changing your password signs out your other devices.</li>
       <li>Delete individual leads, your whole history or your entire account at any time.</li>
     </ul>
 
     <h2>Security</h2>
-    <p>Passwords are hashed with scrypt, sessions use secure, HttpOnly cookies, the app is served with strict security headers, and repeated login attempts are rate limited. Lead text is never written to server logs. No system is perfect, so please use a password you don't use anywhere else.</p>
+    <p>Passwords are hashed with scrypt, sessions use secure, HttpOnly cookies, the app is served with strict security headers, and repeated login attempts are rate limited, and an account is paused for 15 minutes after five wrong passwords in a row. Uploaded files are checked for type and size before they are read, and exported spreadsheets are protected against formula injection. Lead text is never written to server logs. No system is perfect, so please use a password you don't use anywhere else.</p>
 
     <h2>Children</h2>
     <p>LeadScout is a tool for working professionals and isn't meant for anyone under 18.</p>

@@ -256,7 +256,7 @@ class Accounts:
     def delete_account(self, user_id, password):
         self._check_current_password(user_id, password, field="password")
         with self.db.transaction() as run:  # explicit deletes: don't rely only on cascades
-            for table in ("leads", "password_resets", "sessions"):
+            for table in ("leads", "listings", "activity_log", "password_resets", "sessions"):
                 run(f"DELETE FROM {table} WHERE user_id = ?", (user_id,))
             run("DELETE FROM users WHERE id = ?", (user_id,))
 
