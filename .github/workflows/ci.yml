@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install ruff
+      - run: ruff check .
+
+  test-sqlite:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - run: pip install -r requirements-dev.txt
+      - run: pytest -q
+
+  test-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: leadscout
+          POSTGRES_PASSWORD: leadscout
+          POSTGRES_DB: leadscout_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U leadscout" --health-interval 5s --health-timeout 3s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements-dev.txt
+      - run: pytest -q
+        env:
+          TEST_DATABASE_URL: postgresql://leadscout:leadscout@localhost:5432/leadscout_test
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: [lint, test-sqlite]
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t leadscout:ci .
+      - name: Container starts and reports ready
+        run: |
+          docker run -d --name ls -p 8000:8000 -e COOKIE_SECURE=false leadscout:ci
+          for i in $(seq 1 30); do curl -fs localhost:8000/readyz && break; sleep 1; done
+          curl -fs localhost:8000/readyz
+          python3 scripts/smoke_test.py http://localhost:8000
+          docker logs ls | tail -20

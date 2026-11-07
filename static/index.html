@@ -1,0 +1,676 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>LeadScout · AI lead qualification for real estate</title>
+  <meta name="description" content="LeadScout reads property inquiries, scores them Hot, Warm or Cold with clear reasons, and drafts the first reply.">
+  <meta name="theme-color" content="#FFFAF6">
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body class="booting">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-dashboard" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></symbol>
+    <symbol id="i-scan" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 9h10M7 12h10M7 15h6"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5M12 3v12"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/></symbol>
+    <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5M12 15V3"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-flame" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+    <symbol id="i-snow" viewBox="0 0 24 24"><path d="M12 2v20M4.9 7l14.2 10M4.9 17 19.1 7"/><path d="m9 4 3 2 3-2M9 20l3-2 3 2"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+    <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v4M15 1v4M9 19v4M15 19v4M1 9h4M1 15h4M19 9h4M19 15h4"/></symbol>
+    <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
+    <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M20 12V8H6a2 2 0 0 1 0-4h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></symbol>
+    <symbol id="i-bank" viewBox="0 0 24 24"><path d="M3 22h18M6 18v-7M10 18v-7M14 18v-7M18 18v-7M12 2 3 7h18z"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7z"/></symbol>
+    <symbol id="i-message" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+    <symbol id="i-mail" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+    <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M9.9 4.2A10 10 0 0 1 12 4c6.5 0 10 8 10 8a17 17 0 0 1-2.2 3.2M6.6 6.6A17 17 0 0 0 2 12s3.5 8 10 8a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2M2 2l20 20"/></symbol>
+    <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+    <symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+    <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+    <symbol id="i-logo" viewBox="0 0 32 32"><rect width="32" height="32" rx="9" fill="#F97316" stroke="none"/><path d="M9 15.5 16 10l7 5.5V23a1 1 0 0 1-1 1H10a1 1 0 0 1-1-1z" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/><circle cx="16" cy="18.5" r="2.4" fill="#fff" stroke="none"/></symbol>
+  </defs>
+</svg>
+
+<div class="boot" aria-hidden="true"><svg class="logo boot-logo"><use href="#i-logo"/></svg></div>
+
+<!-- ============ AUTH (login / register) ============ -->
+<div class="auth" id="authScreen" hidden>
+  <aside class="auth-brand" aria-hidden="true">
+    <div class="auth-brand-inner">
+      <span class="brand brand-light"><svg class="logo"><use href="#i-logo"/></svg><span>LeadScout</span></span>
+      <div class="auth-pitch">
+        <h2>Find your hottest leads.<br>Close your next deal.</h2>
+        <p>LeadScout reads every property inquiry, scores it with clear reasons and drafts your first reply.</p>
+      </div>
+      <ul class="auth-points">
+        <li><span class="ap-icon"><svg class="i"><use href="#i-sparkles"/></svg></span><span><b>AI reads the inquiry</b><small>Intent, timeline, budget, location, financing</small></span></li>
+        <li><span class="ap-icon"><svg class="i"><use href="#i-target"/></svg></span><span><b>Rules score it, every time the same</b><small>Hot, Warm or Cold with each point explained</small></span></li>
+        <li><span class="ap-icon"><svg class="i"><use href="#i-message"/></svg></span><span><b>You decide and reply</b><small>A personalised SMS draft, ready to copy</small></span></li>
+      </ul>
+      <p class="auth-philosophy">The AI reads. The rules score. The agent decides.</p>
+    </div>
+    <div class="auth-orb orb-1"></div><div class="auth-orb orb-2"></div>
+  </aside>
+
+  <main class="auth-main" id="authMain" tabindex="-1">
+    <div class="auth-card">
+      <a class="brand auth-mobile-brand" href="#/login"><svg class="logo"><use href="#i-logo"/></svg><span>LeadScout</span></a>
+      <div class="auth-tabs" role="tablist" aria-label="Account">
+        <a href="#/login" role="tab" id="tabLogin" aria-controls="loginForm">Log in</a>
+        <a href="#/register" role="tab" id="tabRegister" aria-controls="registerForm">Create account</a>
+        <span class="auth-tab-ind" aria-hidden="true"></span>
+      </div>
+
+      <form class="auth-form" id="loginForm" novalidate aria-labelledby="loginTitle">
+        <div class="auth-head">
+          <h1 id="loginTitle">Welcome back</h1>
+          <p class="muted">Log in to keep qualifying your leads.</p>
+        </div>
+        <div class="form-alert" role="alert" hidden></div>
+        <div class="field">
+          <label for="loginEmail">Email</label>
+          <div class="input-icon"><svg class="i"><use href="#i-mail"/></svg>
+            <input id="loginEmail" name="email" type="email" inputmode="email" autocomplete="username" placeholder="you@agency.com" required aria-describedby="loginEmailErr"></div>
+          <p class="error field-error" id="loginEmailErr" hidden></p>
+        </div>
+        <div class="field">
+          <div class="label-row"><label for="loginPassword">Password</label><a href="#/forgot" class="link-strong small-link">Forgot password?</a></div>
+          <div class="input-icon"><svg class="i"><use href="#i-lock"/></svg>
+            <input id="loginPassword" name="password" type="password" autocomplete="current-password" placeholder="Your password" required aria-describedby="loginPasswordErr">
+            <button type="button" class="pw-toggle" aria-label="Show password" aria-pressed="false" aria-controls="loginPassword"><svg class="i"><use href="#i-eye"/></svg></button></div>
+          <p class="error field-error" id="loginPasswordErr" hidden></p>
+        </div>
+        <label class="check-row"><input type="checkbox" id="rememberMe"><span class="check" aria-hidden="true"><svg class="i"><use href="#i-check"/></svg></span><span>Keep me logged in for 30 days</span></label>
+        <button type="submit" class="btn btn-primary btn-lg btn-block"><span>Log in</span><svg class="i"><use href="#i-arrow"/></svg></button>
+        <p class="auth-switch">New to LeadScout? <a href="#/register" class="link-strong">Create an account</a></p>
+      </form>
+
+      <form class="auth-form" id="registerForm" novalidate aria-labelledby="registerTitle" hidden>
+        <div class="auth-head">
+          <h1 id="registerTitle">Create your account</h1>
+          <p class="muted">Start scoring leads in under a minute. It's free.</p>
+        </div>
+        <div class="form-alert" role="alert" hidden></div>
+        <div class="field">
+          <label for="regName">Full name</label>
+          <div class="input-icon"><svg class="i"><use href="#i-user"/></svg>
+            <input id="regName" name="name" type="text" autocomplete="name" placeholder="Priya Sharma" maxlength="80" required aria-describedby="regNameErr"></div>
+          <p class="error field-error" id="regNameErr" hidden></p>
+        </div>
+        <div class="field">
+          <label for="regEmail">Work email</label>
+          <div class="input-icon"><svg class="i"><use href="#i-mail"/></svg>
+            <input id="regEmail" name="email" type="email" inputmode="email" autocomplete="email" placeholder="you@agency.com" required aria-describedby="regEmailErr"></div>
+          <p class="error field-error" id="regEmailErr" hidden></p>
+        </div>
+        <div class="field">
+          <label for="regPassword">Password</label>
+          <div class="input-icon"><svg class="i"><use href="#i-lock"/></svg>
+            <input id="regPassword" name="password" type="password" autocomplete="new-password" placeholder="8+ characters" required aria-describedby="pwRules regPasswordErr" data-strength="strength">
+            <button type="button" class="pw-toggle" aria-label="Show password" aria-pressed="false" aria-controls="regPassword"><svg class="i"><use href="#i-eye"/></svg></button></div>
+          <div class="strength" id="strength" aria-live="polite">
+            <div class="strength-bars" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+            <span class="strength-label"></span>
+          </div>
+          <ul class="pw-rules" id="pwRules">
+            <li data-rule="len"><svg class="i"><use href="#i-check"/></svg>At least 8 characters</li>
+            <li data-rule="mix"><svg class="i"><use href="#i-check"/></svg>A letter and a number</li>
+          </ul>
+          <p class="error field-error" id="regPasswordErr" hidden></p>
+        </div>
+        <div class="field">
+          <label for="regConfirm">Confirm password</label>
+          <div class="input-icon"><svg class="i"><use href="#i-lock"/></svg>
+            <input id="regConfirm" name="confirm" type="password" autocomplete="new-password" placeholder="Type it again" required aria-describedby="regConfirmErr"></div>
+          <p class="error field-error" id="regConfirmErr" hidden></p>
+        </div>
+        <p class="consent">By creating an account you agree to the <a href="/terms" target="_blank" rel="noopener">Terms of use</a> and <a href="/privacy" target="_blank" rel="noopener">Privacy policy</a>.</p>
+        <button type="submit" class="btn btn-primary btn-lg btn-block"><span>Create account</span><svg class="i"><use href="#i-arrow"/></svg></button>
+        <p class="auth-switch">Already have an account? <a href="#/login" class="link-strong">Log in</a></p>
+      </form>
+      <form class="auth-form" id="forgotForm" novalidate aria-labelledby="forgotTitle" hidden>
+        <div class="auth-head">
+          <h1 id="forgotTitle">Reset your password</h1>
+          <p class="muted">Enter your account email and we'll send you a link to choose a new password.</p>
+        </div>
+        <div class="form-alert" role="alert" hidden></div>
+        <div class="form-success" role="status" hidden>
+          <span class="success-icon"><svg class="i"><use href="#i-mail"/></svg></span>
+          <div><strong>Check your inbox</strong><p class="success-text"></p></div>
+        </div>
+        <div class="field">
+          <label for="forgotEmail">Email</label>
+          <div class="input-icon"><svg class="i"><use href="#i-mail"/></svg>
+            <input id="forgotEmail" type="email" inputmode="email" autocomplete="username" placeholder="you@agency.com" aria-describedby="forgotEmailErr"></div>
+          <p class="error field-error" id="forgotEmailErr" hidden></p>
+        </div>
+        <button type="submit" class="btn btn-primary btn-lg btn-block"><span>Send reset link</span><svg class="i"><use href="#i-arrow"/></svg></button>
+        <p class="auth-switch">Remembered it? <a href="#/login" class="link-strong">Back to log in</a></p>
+      </form>
+
+      <form class="auth-form" id="resetForm" novalidate aria-labelledby="resetTitle" hidden>
+        <div class="auth-head">
+          <h1 id="resetTitle">Choose a new password</h1>
+          <p class="muted">Pick something you don't use anywhere else. You'll be logged in right after.</p>
+        </div>
+        <div class="form-alert" role="alert" hidden></div>
+        <input type="text" autocomplete="username" class="sr-only" tabindex="-1" aria-hidden="true">
+        <div class="field">
+          <label for="resetPassword">New password</label>
+          <div class="input-icon"><svg class="i"><use href="#i-lock"/></svg>
+            <input id="resetPassword" type="password" autocomplete="new-password" placeholder="8+ characters" aria-describedby="resetPasswordErr" data-strength="resetStrength">
+            <button type="button" class="pw-toggle" aria-label="Show password" aria-pressed="false" aria-controls="resetPassword"><svg class="i"><use href="#i-eye"/></svg></button></div>
+          <div class="strength" id="resetStrength" aria-live="polite">
+            <div class="strength-bars" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+            <span class="strength-label"></span>
+          </div>
+          <p class="error field-error" id="resetPasswordErr" hidden></p>
+        </div>
+        <div class="field">
+          <label for="resetConfirm">Confirm new password</label>
+          <div class="input-icon"><svg class="i"><use href="#i-lock"/></svg>
+            <input id="resetConfirm" type="password" autocomplete="new-password" aria-describedby="resetConfirmErr"></div>
+          <p class="error field-error" id="resetConfirmErr" hidden></p>
+        </div>
+        <button type="submit" class="btn btn-primary btn-lg btn-block"><span>Save new password</span><svg class="i"><use href="#i-arrow"/></svg></button>
+        <p class="auth-switch"><a href="#/forgot" class="link-strong">Request a new link</a></p>
+      </form>
+      <p class="auth-foot"><svg class="i"><use href="#i-shield"/></svg>Passwords are hashed with scrypt. Sessions use secure, HttpOnly cookies.</p>
+      <p class="auth-legal"><a href="/privacy">Privacy</a><span aria-hidden="true">·</span><a href="/terms">Terms</a></p>
+    </div>
+  </main>
+</div>
+
+<div class="skip-wrap" role="navigation" aria-label="Skip link"><a class="skip-link" href="#main">Skip to content</a></div>
+
+<header class="topbar" role="banner">
+  <button class="icon-btn" id="menuBtn" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false"><svg class="i"><use href="#i-menu"/></svg></button>
+  <a class="brand" href="#/dashboard" aria-label="LeadScout home"><svg class="logo"><use href="#i-logo"/></svg><span>LeadScout</span></a>
+  <button class="avatar-btn" id="topAvatar" aria-label="Account menu" aria-controls="sidebar"><span class="avatar" data-user-initials>?</span></button>
+  <button class="status-pill" data-status-pill data-go="how" aria-label="AI status"><span class="dot"></span><span class="status-text">Checking…</span></button>
+</header>
+
+<div class="backdrop" id="backdrop" hidden></div>
+
+<aside class="sidebar" id="sidebar" aria-label="Main navigation">
+  <div class="sidebar-head">
+    <a class="brand" href="#/dashboard"><svg class="logo"><use href="#i-logo"/></svg><span>LeadScout</span></a>
+    <button class="icon-btn close-drawer" id="closeDrawer" aria-label="Close navigation"><svg class="i"><use href="#i-x"/></svg></button>
+  </div>
+  <nav class="nav">
+    <p class="nav-label">Workspace</p>
+    <a href="#/dashboard" data-nav="dashboard"><svg class="i"><use href="#i-dashboard"/></svg>Dashboard</a>
+    <a href="#/analyze" data-nav="analyze"><svg class="i"><use href="#i-scan"/></svg>Single lead analysis</a>
+    <a href="#/bulk" data-nav="bulk"><svg class="i"><use href="#i-upload"/></svg>Bulk lead analysis</a>
+    <a href="#/history" data-nav="history"><svg class="i"><use href="#i-clock"/></svg>Lead history</a>
+    <p class="nav-label">Learn</p>
+    <a href="#/samples" data-nav="samples"><svg class="i"><use href="#i-users"/></svg>Sample leads</a>
+    <a href="#/how" data-nav="how"><svg class="i"><use href="#i-book"/></svg>How it works</a>
+    <p class="nav-label">Account</p>
+    <a href="#/settings" data-nav="settings"><svg class="i"><use href="#i-settings"/></svg>Settings</a>
+  </nav>
+  <div class="sidebar-foot">
+    <div class="user-card">
+      <span class="avatar" data-user-initials>?</span>
+      <div class="user-meta"><strong data-user-name></strong><small data-user-email></small></div>
+      <button class="icon-btn" data-logout aria-label="Log out" title="Log out"><svg class="i"><use href="#i-logout"/></svg></button>
+    </div>
+    <div class="ai-card" data-status-card>
+      <div class="ai-card-row"><span class="dot"></span><strong class="status-title">Checking AI…</strong></div>
+      <p class="status-detail">Connecting to the server.</p>
+    </div>
+    <p class="philosophy">The AI reads. The rules score.<br>The agent decides.</p>
+    <p class="legal-mini"><a href="/privacy">Privacy</a><span aria-hidden="true">·</span><a href="/terms">Terms</a></p>
+  </div>
+</aside>
+
+<main id="main" class="main" tabindex="-1">
+
+  <!-- ============ DASHBOARD ============ -->
+  <section class="view" data-view="dashboard" aria-labelledby="dash-title">
+    <div class="hero card">
+      <div class="hero-copy">
+        <p class="eyebrow">Find your hottest leads. Close your next deal.</p>
+        <h1 id="dash-title">Welcome to LeadScout</h1>
+        <p class="lead-text">Turn incoming inquiries into your next opportunity. Paste a message and get a score, the reasons behind it and a reply ready to send.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary btn-lg" href="#/analyze"><svg class="i"><use href="#i-sparkles"/></svg>Analyze new lead</a>
+          <a class="btn btn-ghost btn-lg" href="#/bulk"><svg class="i"><use href="#i-upload"/></svg>Upload CSV</a>
+        </div>
+      </div>
+      <div class="hero-art" aria-hidden="true">
+        <div class="flow-step"><span class="flow-icon"><svg class="i"><use href="#i-message"/></svg></span><span><b>Paste</b><small>Any inquiry</small></span></div>
+        <div class="flow-line"></div>
+        <div class="flow-step"><span class="flow-icon"><svg class="i"><use href="#i-target"/></svg></span><span><b>Score</b><small>Hot, Warm or Cold</small></span></div>
+        <div class="flow-line"></div>
+        <div class="flow-step"><span class="flow-icon"><svg class="i"><use href="#i-copy"/></svg></span><span><b>Reply</b><small>Draft ready to copy</small></span></div>
+      </div>
+    </div>
+
+    <div class="kpis" id="kpis" aria-live="polite">
+      <div class="kpi"><span class="kpi-label">Leads analyzed</span><span class="kpi-value" data-kpi="total">0</span><span class="kpi-sub">this session</span></div>
+      <div class="kpi kpi-hot"><span class="kpi-label"><svg class="i"><use href="#i-flame"/></svg>Hot</span><span class="kpi-value" data-kpi="hot">0</span><span class="kpi-sub" data-kpi-sub="hot">score 70+</span></div>
+      <div class="kpi kpi-warm"><span class="kpi-label"><svg class="i"><use href="#i-sun"/></svg>Warm</span><span class="kpi-value" data-kpi="warm">0</span><span class="kpi-sub" data-kpi-sub="warm">score 40–69</span></div>
+      <div class="kpi kpi-cold"><span class="kpi-label"><svg class="i"><use href="#i-snow"/></svg>Cold</span><span class="kpi-value" data-kpi="cold">0</span><span class="kpi-sub" data-kpi-sub="cold">below 40</span></div>
+      <div class="kpi kpi-avg"><span class="kpi-label">Average score</span><span class="kpi-value" data-kpi="avg">–</span><span class="kpi-sub">out of 100</span></div>
+    </div>
+
+    <div class="dash-grid">
+      <div class="card">
+        <div class="card-head"><h2>Lead distribution</h2></div>
+        <div id="distribution"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>Recent activity</h2><a class="link" href="#/history" id="viewAllLink" hidden>View all</a></div>
+        <div id="recent"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>Quick actions</h2></div>
+      <div class="quick-grid">
+        <a class="quick" href="#/analyze"><span class="quick-icon"><svg class="i"><use href="#i-scan"/></svg></span><span><strong>Analyze a lead</strong><small>Paste one inquiry and get a score in seconds</small></span><svg class="i chev"><use href="#i-arrow"/></svg></a>
+        <a class="quick" href="#/bulk"><span class="quick-icon"><svg class="i"><use href="#i-upload"/></svg></span><span><strong>Upload a CSV</strong><small>Score up to 50 leads at once</small></span><svg class="i chev"><use href="#i-arrow"/></svg></a>
+        <a class="quick" href="#/samples"><span class="quick-icon"><svg class="i"><use href="#i-users"/></svg></span><span><strong>Explore sample leads</strong><small>Six realistic inquiries to try</small></span><svg class="i chev"><use href="#i-arrow"/></svg></a>
+      </div>
+    </div>
+
+    <div class="privacy-row">
+      <svg class="i"><use href="#i-shield"/></svg>
+      <p>Every lead you analyze is saved privately to your account. Only you can see it.</p>
+      <a class="btn btn-text btn-sm" href="#/history"><svg class="i"><use href="#i-clock"/></svg>Manage history</a>
+    </div>
+  </section>
+
+  <!-- ============ SINGLE ANALYSIS ============ -->
+  <section class="view" data-view="analyze" aria-labelledby="an-title" hidden>
+    <div class="page-head">
+      <div>
+        <h1 id="an-title">Single lead analysis</h1>
+        <p class="muted">Paste a message, analyze, and copy your reply.</p>
+      </div>
+      <ol class="steps" aria-label="Workflow">
+        <li class="on">Paste</li><li>Analyze</li><li>Understand</li><li>Reply</li>
+      </ol>
+    </div>
+
+    <div class="analyze-grid">
+      <form class="card input-card" id="leadForm" novalidate>
+        <div class="field">
+          <label for="leadName">Lead name <span class="optional">optional</span></label>
+          <input id="leadName" name="name" type="text" autocomplete="off" maxlength="80" placeholder="e.g. Priya Sharma">
+        </div>
+        <div class="field">
+          <div class="label-row"><label for="leadMsg">Inquiry message</label><span class="counter" id="counter" aria-live="polite">0 / 2000</span></div>
+          <textarea id="leadMsg" name="message" rows="8" maxlength="2000" aria-describedby="msgHint msgError" placeholder="Paste a property inquiry here…&#10;&#10;Example: Hi, I'm looking for a 3BHK apartment in Vijayawada around ₹80 lakhs. I'm pre-approved for a home loan and would like to move within the next two months."></textarea>
+          <p class="hint" id="msgHint">Paste the message exactly as the lead wrote it. Missing details are fine.</p>
+          <p class="error" id="msgError" role="alert" hidden></p>
+        </div>
+        <div class="field">
+          <span class="label">Try a sample</span>
+          <div class="chips" id="sampleChips">
+            <button type="button" class="chip" data-sample="hot"><span class="tier-dot hot"></span>Hot buyer</button>
+            <button type="button" class="chip" data-sample="warm"><span class="tier-dot warm"></span>Warm buyer</button>
+            <button type="button" class="chip" data-sample="cold"><span class="tier-dot cold"></span>Cold inquiry</button>
+            <button type="button" class="chip" data-sample="seller"><svg class="i"><use href="#i-home"/></svg>Property seller</button>
+          </div>
+        </div>
+        <div class="form-foot">
+          <label class="switch-row" id="aiToggleRow"><input type="checkbox" id="aiToggle" role="switch" checked><span class="switch" aria-hidden="true"></span><span>Use AI extraction</span></label>
+          <div class="form-buttons">
+            <button type="button" class="btn btn-text" id="clearForm">Clear</button>
+            <button type="submit" class="btn btn-primary btn-lg" id="analyzeBtn"><svg class="i"><use href="#i-sparkles"/></svg><span>Analyze lead</span></button>
+          </div>
+        </div>
+      </form>
+
+      <div class="result-col" id="resultCol" aria-live="polite" aria-busy="false">
+        <div class="card empty-result" id="resultEmpty">
+          <div class="empty-icon"><svg class="i"><use href="#i-target"/></svg></div>
+          <h2>Your analysis appears here</h2>
+          <p class="muted">You'll see the score, why it scored that way, what to do next and a reply you can copy.</p>
+        </div>
+        <div id="resultArea"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ BULK ============ -->
+  <section class="view" data-view="bulk" aria-labelledby="bulk-title" hidden>
+    <div class="page-head">
+      <div>
+        <h1 id="bulk-title">Bulk lead analysis</h1>
+        <p class="muted">Upload a CSV and LeadScout ranks every lead, highest score first.</p>
+      </div>
+    </div>
+
+    <div class="card upload-card">
+      <div class="dropzone" id="dropzone">
+        <input type="file" id="fileInput" accept=".csv,text/csv" class="sr-only" aria-describedby="fileHelp">
+        <div class="drop-icon"><svg class="i"><use href="#i-upload"/></svg></div>
+        <p class="drop-title"><span class="hide-touch">Drag and drop your CSV here, or </span><label for="fileInput" class="link-btn">browse files</label></p>
+        <p class="hint" id="fileHelp">CSV with a <code>message</code> column and an optional <code>name</code> column · up to 50 leads · max 512 KB</p>
+      </div>
+      <div class="file-chip" id="fileChip" hidden>
+        <svg class="i"><use href="#i-file"/></svg>
+        <div class="file-meta"><strong id="fileName"></strong><small id="fileSize"></small></div>
+        <button class="icon-btn" id="removeFile" aria-label="Remove file"><svg class="i"><use href="#i-x"/></svg></button>
+      </div>
+      <p class="error" id="uploadError" role="alert" hidden></p>
+      <div class="upload-actions">
+        <a class="btn btn-text" href="/sample_leads.csv" download><svg class="i"><use href="#i-download"/></svg>Download sample CSV</a>
+        <div class="form-buttons">
+          <button class="btn btn-ghost" id="runSample"><svg class="i"><use href="#i-users"/></svg>Use sample leads</button>
+          <button class="btn btn-primary" id="runUpload" disabled><svg class="i"><use href="#i-sparkles"/></svg><span>Analyze leads</span></button>
+        </div>
+      </div>
+      <div class="progress" id="bulkProgress" hidden>
+        <div class="progress-bar"><span></span></div>
+        <p class="hint" id="bulkStatus" role="status"></p>
+      </div>
+    </div>
+
+    <div id="bulkResults" hidden>
+      <div class="kpis kpis-compact" id="bulkKpis"></div>
+      <p class="engine-note" id="bulkEngine"></p>
+      <div class="card table-card">
+        <div class="toolbar">
+          <div class="search">
+            <svg class="i"><use href="#i-search"/></svg>
+            <label for="bulkSearch" class="sr-only">Search leads</label>
+            <input id="bulkSearch" type="search" placeholder="Search name, location, message…">
+          </div>
+          <div class="segmented" role="group" aria-label="Filter by classification" id="tierFilter">
+            <button data-tier="all" aria-pressed="true">All</button>
+            <button data-tier="Hot" aria-pressed="false">Hot</button>
+            <button data-tier="Warm" aria-pressed="false">Warm</button>
+            <button data-tier="Cold" aria-pressed="false">Cold</button>
+          </div>
+          <div class="toolbar-end">
+            <label for="bulkSort" class="sr-only">Sort</label>
+            <select id="bulkSort">
+              <option value="score-desc">Score: high to low</option>
+              <option value="score-asc">Score: low to high</option>
+              <option value="name-asc">Name: A to Z</option>
+            </select>
+            <button class="btn btn-ghost" id="downloadCsv" aria-label="Download scored leads as CSV"><svg class="i"><use href="#i-download"/></svg><span>Download CSV</span></button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="leads-table">
+            <thead>
+              <tr>
+                <th scope="col"><button class="th-sort" data-sort="name">Lead</button></th>
+                <th scope="col">Intent</th>
+                <th scope="col">Budget</th>
+                <th scope="col">Timeline</th>
+                <th scope="col">Location</th>
+                <th scope="col" aria-sort="descending"><button class="th-sort" data-sort="score">Score</button></th>
+                <th scope="col">Classification</th>
+                <th scope="col"><span class="sr-only">Action</span></th>
+              </tr>
+            </thead>
+            <tbody id="bulkTbody"></tbody>
+          </table>
+        </div>
+        <div class="lead-cards" id="bulkCards"></div>
+        <p class="no-match" id="noMatch" hidden>No leads match your filters.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SAMPLES ============ -->
+  <section class="view" data-view="samples" aria-labelledby="samples-title" hidden>
+    <div class="page-head">
+      <div>
+        <h1 id="samples-title">Sample leads</h1>
+        <p class="muted">Six realistic inquiries covering the situations agents see every day. Results are calculated live.</p>
+      </div>
+      <button class="btn btn-primary" id="analyzeAllSamples"><svg class="i"><use href="#i-sparkles"/></svg>Analyze all six</button>
+    </div>
+    <div class="sample-grid" id="sampleGrid"></div>
+  </section>
+
+  <!-- ============ HISTORY ============ -->
+  <section class="view" data-view="history" aria-labelledby="history-title" hidden>
+    <div class="page-head">
+      <div>
+        <h1 id="history-title">Lead history</h1>
+        <p class="muted">Every lead you've analyzed, saved to your account.</p>
+      </div>
+      <div class="head-actions">
+        <button class="btn btn-ghost" id="historyExport"><svg class="i"><use href="#i-download"/></svg><span>Export CSV</span></button>
+        <button class="btn btn-text danger-text" id="historyClear"><svg class="i"><use href="#i-trash"/></svg><span>Clear all</span></button>
+      </div>
+    </div>
+    <div class="card table-card">
+      <div class="toolbar">
+        <div class="search">
+          <svg class="i"><use href="#i-search"/></svg>
+          <label for="historySearch" class="sr-only">Search history</label>
+          <input id="historySearch" type="search" placeholder="Search name, location, message…">
+        </div>
+        <div class="segmented" role="group" aria-label="Filter by classification" id="historyTier">
+          <button data-tier="all" aria-pressed="true">All</button>
+          <button data-tier="Hot" aria-pressed="false">Hot</button>
+          <button data-tier="Warm" aria-pressed="false">Warm</button>
+          <button data-tier="Cold" aria-pressed="false">Cold</button>
+        </div>
+        <div class="toolbar-end">
+          <label for="historySort" class="sr-only">Sort</label>
+          <select id="historySort">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="score-desc">Score: high to low</option>
+            <option value="score-asc">Score: low to high</option>
+          </select>
+        </div>
+      </div>
+      <div id="historyBody" aria-live="polite" aria-busy="false"></div>
+      <div class="pager" id="historyPager" hidden>
+        <p class="pager-info" id="pagerInfo"></p>
+        <div class="pager-btns">
+          <button class="btn btn-ghost btn-sm" id="pagePrev" aria-label="Previous page"><svg class="i"><use href="#i-chevron-left"/></svg><span>Previous</span></button>
+          <button class="btn btn-ghost btn-sm" id="pageNext" aria-label="Next page"><span>Next</span><svg class="i"><use href="#i-chevron-right"/></svg></button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SETTINGS ============ -->
+  <section class="view" data-view="settings" aria-labelledby="settings-title" hidden>
+    <div class="page-head">
+      <div>
+        <h1 id="settings-title">Settings</h1>
+        <p class="muted">Manage your profile, password and data.</p>
+      </div>
+    </div>
+    <div class="settings-grid">
+      <form class="card settings-card" id="profileForm" novalidate>
+        <div class="card-head"><h2>Profile</h2></div>
+        <div class="form-alert" role="alert" hidden></div>
+        <div class="field">
+          <label for="setName">Full name</label>
+          <div class="input-icon"><svg class="i"><use href="#i-user"/></svg>
+            <input id="setName" type="text" autocomplete="name" maxlength="80" aria-describedby="setNameErr"></div>
+          <p class="error field-error" id="setNameErr" hidden></p>
+        </div>
+        <div class="field">
+          <label for="setEmail">Email</label>
+          <div class="input-icon"><svg class="i"><use href="#i-mail"/></svg>
+            <input id="setEmail" type="email" readonly aria-describedby="setEmailHint"></div>
+          <p class="hint" id="setEmailHint">Your email is your login and can't be changed here.</p>
+        </div>
+        <div class="settings-foot"><button type="submit" class="btn btn-primary"><span>Save changes</span></button></div>
+      </form>
+
+      <form class="card settings-card" id="passwordForm" novalidate>
+        <div class="card-head"><h2>Password</h2></div>
+        <div class="form-alert" role="alert" hidden></div>
+        <input type="text" autocomplete="username" class="sr-only" tabindex="-1" aria-hidden="true" data-username>
+        <div class="field">
+          <label for="curPassword">Current password</label>
+          <div class="input-icon"><svg class="i"><use href="#i-lock"/></svg>
+            <input id="curPassword" type="password" autocomplete="current-password" aria-describedby="curPasswordErr">
+            <button type="button" class="pw-toggle" aria-label="Show password" aria-pressed="false" aria-controls="curPassword"><svg class="i"><use href="#i-eye"/></svg></button></div>
+          <p class="error field-error" id="curPasswordErr" hidden></p>
+        </div>
+        <div class="field">
+          <label for="newPassword">New password</label>
+          <div class="input-icon"><svg class="i"><use href="#i-lock"/></svg>
+            <input id="newPassword" type="password" autocomplete="new-password" placeholder="8+ characters" aria-describedby="newPasswordErr" data-strength="newStrength">
+            <button type="button" class="pw-toggle" aria-label="Show password" aria-pressed="false" aria-controls="newPassword"><svg class="i"><use href="#i-eye"/></svg></button></div>
+          <div class="strength" id="newStrength" aria-live="polite">
+            <div class="strength-bars" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+            <span class="strength-label"></span>
+          </div>
+          <p class="error field-error" id="newPasswordErr" hidden></p>
+        </div>
+        <div class="field">
+          <label for="newConfirm">Confirm new password</label>
+          <div class="input-icon"><svg class="i"><use href="#i-lock"/></svg>
+            <input id="newConfirm" type="password" autocomplete="new-password" aria-describedby="newConfirmErr"></div>
+          <p class="error field-error" id="newConfirmErr" hidden></p>
+        </div>
+        <p class="hint">Changing your password signs you out on your other devices.</p>
+        <div class="settings-foot"><button type="submit" class="btn btn-primary"><span>Update password</span></button></div>
+      </form>
+
+      <div class="card settings-card danger-card">
+        <div class="card-head"><h2>Delete account</h2></div>
+        <p class="muted">This permanently deletes your account, your saved lead history and all your sessions. It can't be undone.</p>
+        <div class="settings-foot"><button type="button" class="btn btn-danger" id="deleteAccountBtn"><svg class="i"><use href="#i-trash"/></svg><span>Delete my account</span></button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ HOW IT WORKS ============ -->
+  <section class="view" data-view="how" aria-labelledby="how-title" hidden>
+    <div class="page-head">
+      <div>
+        <h1 id="how-title">How it works</h1>
+        <p class="muted">The AI reads. The rules score. The agent decides.</p>
+      </div>
+    </div>
+    <div class="pipeline">
+      <div class="card step-card"><span class="step-num">1</span><h2>The AI reads</h2><p>An open AI model hosted on Groq (GPT-OSS 120B by default) reads the message at temperature 0 and returns structured facts: intent, timeline, budget, location, financing, motivation and red flags. The output is cleaned, type checked and retried once if the JSON is broken.</p></div>
+      <div class="card step-card"><span class="step-num">2</span><h2>The rules score</h2><p>Plain Python rules turn those facts into a 0 to 100 score. The AI never picks the score, so the same facts always give the same number and every point is explained.</p></div>
+      <div class="card step-card"><span class="step-num">3</span><h2>The agent decides</h2><p>You get a recommended next step and a drafted SMS matched to the tier. LeadScout only drafts. You review and send it yourself.</p></div>
+    </div>
+
+    <div class="how-grid">
+      <div class="card">
+        <div class="card-head"><h2>Scoring rules</h2></div>
+        <table class="rules">
+          <thead><tr><th scope="col">Factor</th><th scope="col" class="num">Points</th></tr></thead>
+          <tbody>
+            <tr><td>Moving within one month</td><td class="num pos">+30</td></tr>
+            <tr><td>Moving within three months</td><td class="num pos">+25</td></tr>
+            <tr><td>Moving within six months</td><td class="num pos">+15</td></tr>
+            <tr><td>Moving later, or no timeline given</td><td class="num pos">+5</td></tr>
+            <tr><td>Cash or pre-approved financing</td><td class="num pos">+25</td></tr>
+            <tr><td>Needs a mortgage</td><td class="num pos">+10</td></tr>
+            <tr><td>Financing unknown</td><td class="num">0</td></tr>
+            <tr><td>Budget stated</td><td class="num pos">+15</td></tr>
+            <tr><td>Location stated</td><td class="num pos">+10</td></tr>
+            <tr><td>Clear buy, sell or invest intent</td><td class="num pos">+10</td></tr>
+            <tr><td>Renting intent</td><td class="num pos">+3</td></tr>
+            <tr><td>Motivation given</td><td class="num pos">+10</td></tr>
+            <tr><td>Each red flag</td><td class="num neg">−10</td></tr>
+          </tbody>
+        </table>
+        <p class="hint">The total is kept between 0 and 100.</p>
+      </div>
+      <div class="stack">
+        <div class="card">
+          <div class="card-head"><h2>Classification</h2></div>
+          <ul class="tier-list">
+            <li><span class="badge hot">Hot</span><span>70 and above. Call today.</span></li>
+            <li><span class="badge warm">Warm</span><span>40 to 69. Ask the most useful missing question.</span></li>
+            <li><span class="badge cold">Cold</span><span>Below 40. Share listings, no pressure.</span></li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Offline fallback</h2></div>
+          <p>If no API key is set or the AI service is unavailable, LeadScout switches to offline pattern rules for extraction and template replies. Scoring stays exactly the same. Every result shows which engine handled it, so you always know.</p>
+          <div class="ai-card inline" data-status-card>
+            <div class="ai-card-row"><span class="dot"></span><strong class="status-title">Checking AI…</strong></div>
+            <p class="status-detail"></p>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Privacy</h2></div>
+          <p>Leads you analyze are saved to your account so you can find them later, and only you can see them. You can delete them any time from Lead history. Lead text is never written to server logs, and the AI key stays on the server. <a class="link" href="/privacy">Read the privacy policy</a></p>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<nav class="bottom-nav" aria-label="Quick navigation">
+  <a href="#/dashboard" data-nav="dashboard"><svg class="i"><use href="#i-dashboard"/></svg><span>Dashboard</span></a>
+  <a href="#/analyze" data-nav="analyze"><svg class="i"><use href="#i-scan"/></svg><span>Analyze</span></a>
+  <a href="#/bulk" data-nav="bulk"><svg class="i"><use href="#i-upload"/></svg><span>Bulk</span></a>
+  <a href="#/history" data-nav="history"><svg class="i"><use href="#i-clock"/></svg><span>History</span></a>
+</nav>
+
+<dialog class="modal" id="leadModal" aria-labelledby="modalTitle">
+  <div class="modal-head">
+    <h2 id="modalTitle">Lead details</h2>
+    <button class="icon-btn" id="closeModal" aria-label="Close details"><svg class="i"><use href="#i-x"/></svg></button>
+  </div>
+  <div class="modal-body" id="modalBody"></div>
+</dialog>
+
+<dialog class="modal confirm" id="confirmModal" aria-labelledby="confirmTitle" aria-describedby="confirmText">
+  <form method="dialog" class="confirm-body" id="confirmForm" novalidate>
+    <span class="confirm-icon"><svg class="i"><use href="#i-alert"/></svg></span>
+    <h2 id="confirmTitle"></h2>
+    <p id="confirmText" class="muted"></p>
+    <div class="field" id="confirmField" hidden>
+      <label for="confirmPassword">Enter your password to confirm</label>
+      <input type="text" autocomplete="username" class="sr-only" tabindex="-1" aria-hidden="true">
+      <div class="input-icon"><svg class="i"><use href="#i-lock"/></svg>
+        <input id="confirmPassword" type="password" autocomplete="current-password" aria-describedby="confirmPasswordErr"></div>
+      <p class="error field-error" id="confirmPasswordErr" hidden></p>
+    </div>
+    <div class="confirm-actions">
+      <button type="button" class="btn btn-ghost" id="confirmCancel">Cancel</button>
+      <button type="submit" class="btn btn-danger" id="confirmOk"><span>Delete</span></button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
+</body>
+</html>

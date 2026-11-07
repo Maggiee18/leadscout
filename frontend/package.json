@@ -1,0 +1,12 @@
+{
+  "name": "leadscout-frontend",
+  "private": true,
+  "description": "Builds the 3D hero scene for the LeadScout landing page into static/landing3d.js",
+  "scripts": {
+    "build": "esbuild landing3d.js --bundle --format=esm --minify --target=es2020 --legal-comments=eof --outfile=../static/landing3d.js"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.11",
+    "three": "0.186.1"
+  }
+}

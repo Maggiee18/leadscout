@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Privacy policy · LeadScout</title>
+  <meta name="description" content="How LeadScout handles your account and the lead messages you analyze.">
+  <meta name="theme-color" content="#FFFAF6">
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="legal-body">
+  <header class="legal-top">
+    <a class="brand" href="/"><img class="logo" src="/static/favicon.svg" alt="" width="30" height="30"><span>LeadScout</span></a>
+    <a class="btn btn-ghost btn-sm" href="/">Back to LeadScout</a>
+  </header>
+  <main class="legal" id="main">
+    <p class="eyebrow">Last updated 7 November 2026</p>
+    <h1>Privacy policy</h1>
+
+    <p class="legal-lead">LeadScout helps real estate agents qualify property inquiries. This page explains, in plain words, what data it keeps, why, and how you stay in control of it.</p>
+
+    <h2>Who runs LeadScout</h2>
+    <p>LeadScout is an independent project. Each deployment is run by whoever hosts it (the "operator"). If you have a question about your data, contact the operator of the site you are using. For the original project, open an issue at <a href="https://github.com/Maggiee18/leadscout">github.com/Maggiee18/leadscout</a>.</p>
+
+    <h2>What we store</h2>
+    <ul>
+      <li><strong>Your account:</strong> your name, your email address and a scrambled version of your password (an scrypt hash). We can't read your actual password.</li>
+      <li><strong>Your sessions:</strong> a record that you're logged in, so you stay signed in. We store a fingerprint of the session, not the session itself.</li>
+      <li><strong>Your lead history:</strong> each inquiry you analyze, the details extracted from it, its score, the recommended next step and the drafted reply. This is what powers your dashboard and History page.</li>
+      <li><strong>Password reset requests:</strong> a fingerprint of each reset link and when it expires (30 minutes).</li>
+    </ul>
+    <p>We don't store payment details, and we don't use analytics, advertising or tracking tools.</p>
+
+    <h2>Lead messages contain other people's details</h2>
+    <p>The inquiries you paste or upload usually include names, budgets, locations and plans of your clients. Please only analyze messages you're allowed to process for your work, and leave out anything that isn't needed, such as ID numbers, bank details or health information.</p>
+
+    <h2>How the AI part works</h2>
+    <p>When AI extraction is switched on, the text of each inquiry is sent to Groq, an AI provider, which runs an open AI model (GPT-OSS 120B by default) to pull out the facts and draft a reply. Groq processes the text under its own terms and privacy policy. The score itself is always calculated by LeadScout's own rules, not by the AI. If you'd rather nothing leaves LeadScout, turn off "Use AI extraction" and offline rules are used instead.</p>
+
+    <h2>Cookies</h2>
+    <p>LeadScout sets one cookie, <code>ls_session</code>, which keeps you logged in. It can't be read by scripts on the page and is only sent to LeadScout. It lasts 7 days, or 30 days if you choose "Keep me logged in". There are no third party or tracking cookies. The page loads the Manrope font from Google Fonts, so Google can see that a page requested the font.</p>
+
+    <h2>How long we keep data</h2>
+    <p>Your account and lead history stay until you delete them. You can delete a single lead, clear your whole history, or delete your account from Settings. Deleting your account removes your profile, sessions, reset links and every saved lead right away. Expired sessions and reset links are cleaned up automatically.</p>
+
+    <h2>Your choices</h2>
+    <ul>
+      <li>See all your saved leads on the History page, and download them as CSV.</li>
+      <li>Change your name or password in Settings. Changing your password signs out your other devices.</li>
+      <li>Delete individual leads, your whole history or your entire account at any time.</li>
+    </ul>
+
+    <h2>Security</h2>
+    <p>Passwords are hashed with scrypt, sessions use secure, HttpOnly cookies, the app is served with strict security headers, and repeated login attempts are rate limited. Lead text is never written to server logs. No system is perfect, so please use a password you don't use anywhere else.</p>
+
+    <h2>Children</h2>
+    <p>LeadScout is a tool for working professionals and isn't meant for anyone under 18.</p>
+
+    <h2>Changes</h2>
+    <p>If this policy changes, the date at the top of the page will change too. Big changes will be pointed out in the app.</p>
+
+    <nav class="legal-links" aria-label="Legal"><a href="/privacy">Privacy policy</a><a href="/terms">Terms of use</a><a href="/app">Open LeadScout</a></nav>
+  </main>
+</body>
+</html>
